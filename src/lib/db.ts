@@ -303,11 +303,14 @@ export async function getCallsForFeed(
   const { count, error: countError } = await supabase
     .from('calls')
     .select('*', { count: 'exact', head: true })
-    .filter('ended_at', 'not.is', null);
+    .not('ended_at', 'is', null);
 
   if (countError) {
     console.error('Get feed count error:', countError);
   }
+
+  // Debug logging for feed query
+  console.log('[Feed] Count query result:', { count, countError });
 
   // Get calls with related data
   const { data: calls, error } = await supabase
@@ -318,16 +321,42 @@ export async function getCallsForFeed(
       persona:personas(id, name, difficulty_level),
       score:call_scores(*)
     `)
-    .filter('ended_at', 'not.is', null)
+    .not('ended_at', 'is', null)
     .order('created_at', { ascending: false })
     .range(offset, offset + perPage - 1);
+
+  // Debug logging for feed query
+  console.log('[Feed] Calls query result:', {
+    callCount: calls?.length ?? 0,
+    error,
+    firstCall: calls?.[0] ? {
+      id: calls[0].id,
+      ended_at: calls[0].ended_at,
+      user_id: calls[0].user_id
+    } : null
+  });
 
   if (error) {
     console.error('Get feed calls error:', error);
     return { calls: [], total: 0 };
   }
 
-  if (!calls) {
+  if (!calls || calls.length === 0) {
+    console.log('[Feed] No calls found - checking if any calls exist at all...');
+    // Additional debug: check if ANY calls exist
+    const { data: allCalls, count: allCallsCount } = await supabase
+      .from('calls')
+      .select('id, ended_at, user_id, created_at', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .limit(5);
+    console.log('[Feed] Debug - All calls sample:', {
+      allCallsCount,
+      sampleCalls: allCalls?.map(c => ({
+        id: c.id,
+        ended_at: c.ended_at,
+        user_id: c.user_id
+      }))
+    });
     return { calls: [], total: 0 };
   }
 
@@ -400,7 +429,7 @@ export async function getUserCalls(userId: string): Promise<CallWithDetails[]> {
       score:call_scores(*)
     `)
     .eq('user_id', userId)
-    .filter('ended_at', 'not.is', null)
+    .not('ended_at', 'is', null)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -684,7 +713,7 @@ export async function getLeaderboard(limit: number = 10): Promise<{
       user_id,
       score:call_scores(overall_score)
     `)
-    .filter('ended_at', 'not.is', null);
+    .not('ended_at', 'is', null);
 
   // Calculate average scores per user
   const userScores: Record<string, number[]> = {};
@@ -793,7 +822,7 @@ export async function getUnreviewedCalls(
   const { count, error: countError } = await supabase
     .from('calls')
     .select('*', { count: 'exact', head: true })
-    .filter('ended_at', 'not.is', null)
+    .not('ended_at', 'is', null)
     .or('reviewed.is.null,reviewed.eq.false');
 
   if (countError) {
@@ -809,7 +838,7 @@ export async function getUnreviewedCalls(
       persona:personas(id, name, difficulty_level, description, personality_prompt),
       score:call_scores(*)
     `)
-    .filter('ended_at', 'not.is', null)
+    .not('ended_at', 'is', null)
     .or('reviewed.is.null,reviewed.eq.false')
     .order('created_at', { ascending: true }) // Oldest first for FIFO queue
     .range(offset, offset + perPage - 1);
@@ -845,7 +874,7 @@ export async function getNextCallForReview(): Promise<CallForReview | null> {
       persona:personas(id, name, difficulty_level, description, personality_prompt),
       score:call_scores(*)
     `)
-    .filter('ended_at', 'not.is', null)
+    .not('ended_at', 'is', null)
     .or('reviewed.is.null,reviewed.eq.false')
     .order('created_at', { ascending: true })
     .limit(1)
@@ -978,7 +1007,7 @@ export async function getReviewQueueStats(): Promise<{
   const { count: pending } = await supabase
     .from('calls')
     .select('*', { count: 'exact', head: true })
-    .filter('ended_at', 'not.is', null)
+    .not('ended_at', 'is', null)
     .or('reviewed.is.null,reviewed.eq.false');
 
   // Get reviewed today
