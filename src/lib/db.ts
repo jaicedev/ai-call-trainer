@@ -321,7 +321,7 @@ export async function getCallsForFeed(
     .from('calls')
     .select(`
       *,
-      user:users(id, name, profile_picture_url),
+      user:users!calls_user_id_fkey(id, name, profile_picture_url),
       persona:personas(id, name, difficulty_level),
       score:call_scores(*)
     `)
@@ -439,7 +439,7 @@ export async function getUserCalls(userId: string): Promise<CallWithDetails[]> {
     .from('calls')
     .select(`
       *,
-      user:users(id, name, profile_picture_url),
+      user:users!calls_user_id_fkey(id, name, profile_picture_url),
       persona:personas(id, name, difficulty_level),
       score:call_scores(*)
     `)
@@ -877,7 +877,7 @@ export async function getUnreviewedCalls(
     .from('calls')
     .select(`
       *,
-      user:users(id, name, profile_picture_url),
+      user:users!calls_user_id_fkey(id, name, profile_picture_url),
       persona:personas(id, name, difficulty_level, description, personality_prompt),
       score:call_scores(*)
     `)
@@ -913,7 +913,7 @@ export async function getNextCallForReview(): Promise<CallForReview | null> {
     .from('calls')
     .select(`
       *,
-      user:users(id, name, profile_picture_url),
+      user:users!calls_user_id_fkey(id, name, profile_picture_url),
       persona:personas(id, name, difficulty_level, description, personality_prompt),
       score:call_scores(*)
     `)
@@ -951,7 +951,7 @@ export async function getCallForReviewById(callId: string): Promise<CallForRevie
     .from('calls')
     .select(`
       *,
-      user:users(id, name, profile_picture_url),
+      user:users!calls_user_id_fkey(id, name, profile_picture_url),
       persona:personas(id, name, difficulty_level, description, personality_prompt),
       score:call_scores(*)
     `)
