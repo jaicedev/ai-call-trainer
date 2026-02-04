@@ -11,13 +11,13 @@ import {
   Lightbulb,
   Star,
   MessageCircle,
-  Play,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CallWithDetails, ReactionType } from '@/types';
 import { FeedComments } from './feed-comments';
+import { AudioPlayer } from '@/components/ui/audio-player';
 
 interface FeedCardProps {
   call: CallWithDetails;
@@ -124,35 +124,29 @@ export function FeedCard({ call, onReactionToggle }: FeedCardProps) {
 
       <CardContent className="space-y-4">
         {/* Score and Duration */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {call.score && (
-              <div>
-                <span
-                  className={cn(
-                    'text-3xl font-bold',
-                    getScoreColor(call.score.overall_score)
-                  )}
-                >
-                  {call.score.overall_score}
-                </span>
-                <span className="text-sm text-muted-foreground">/100</span>
-              </div>
-            )}
-            <div className="text-sm text-muted-foreground">
-              {formatDuration(call.duration_seconds)}
+        <div className="flex items-center gap-4">
+          {call.score && (
+            <div>
+              <span
+                className={cn(
+                  'text-3xl font-bold',
+                  getScoreColor(call.score.overall_score)
+                )}
+              >
+                {call.score.overall_score}
+              </span>
+              <span className="text-sm text-muted-foreground">/100</span>
             </div>
-          </div>
-
-          {call.recording_url && (
-            <Button variant="outline" size="sm" asChild>
-              <a href={call.recording_url} target="_blank" rel="noopener">
-                <Play className="mr-2 h-4 w-4" />
-                Listen
-              </a>
-            </Button>
           )}
+          <div className="text-sm text-muted-foreground">
+            {formatDuration(call.duration_seconds)}
+          </div>
         </div>
+
+        {/* Audio Player */}
+        {call.recording_url && (
+          <AudioPlayer src={call.recording_url} compact />
+        )}
 
         {/* Expanded Score Details */}
         {expanded && call.score && (
