@@ -1,3 +1,6 @@
+<img width="826" height="463" alt="image" src="https://github.com/user-attachments/assets/0578e6c6-7f80-475b-a9b6-c121d8444d75" />
+
+
 # TalkMCA
 
 **AI-Powered Sales Call Training Platform**
