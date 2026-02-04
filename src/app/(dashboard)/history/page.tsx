@@ -1,0 +1,307 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Loader2, Play, ChevronDown, ChevronUp } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { CallWithDetails } from '@/types';
+
+const difficultyColors = {
+  1: 'bg-green-100 text-green-800',
+  2: 'bg-lime-100 text-lime-800',
+  3: 'bg-yellow-100 text-yellow-800',
+  4: 'bg-orange-100 text-orange-800',
+  5: 'bg-red-100 text-red-800',
+};
+
+export default function HistoryPage() {
+  const [calls, setCalls] = useState<CallWithDetails[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<'date' | 'score' | 'duration'>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  useEffect(() => {
+    loadCalls();
+  }, []);
+
+  const loadCalls = async () => {
+    try {
+      const res = await fetch('/api/calls/history');
+      const data = await res.json();
+      setCalls(data.calls || []);
+    } catch (err) {
+      console.error('Failed to load history:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const sortedCalls = [...calls].sort((a, b) => {
+    let comparison = 0;
+    switch (sortField) {
+      case 'date':
+        comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        break;
+      case 'score':
+        comparison = (a.score?.overall_score || 0) - (b.score?.overall_score || 0);
+        break;
+      case 'duration':
+        comparison = a.duration_seconds - b.duration_seconds;
+        break;
+    }
+    return sortDir === 'asc' ? comparison : -comparison;
+  });
+
+  const toggleSort = (field: 'date' | 'score' | 'duration') => {
+    if (sortField === field) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('desc');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold">Call History</h1>
+        <p className="text-muted-foreground">Review your past practice calls</p>
+      </div>
+
+      {calls.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">
+            No calls yet. Start a practice call to see your history!
+          </p>
+        </div>
+      ) : (
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead
+                  className="cursor-pointer"
+                  onClick={() => toggleSort('date')}
+                >
+                  Date{' '}
+                  {sortField === 'date' &&
+                    (sortDir === 'desc' ? '↓' : '↑')}
+                </TableHead>
+                <TableHead>Persona</TableHead>
+                <TableHead
+                  className="cursor-pointer"
+                  onClick={() => toggleSort('score')}
+                >
+                  Score{' '}
+                  {sortField === 'score' &&
+                    (sortDir === 'desc' ? '↓' : '↑')}
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer"
+                  onClick={() => toggleSort('duration')}
+                >
+                  Duration{' '}
+                  {sortField === 'duration' &&
+                    (sortDir === 'desc' ? '↓' : '↑')}
+                </TableHead>
+                <TableHead className="w-[100px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedCalls.map((call) => (
+                <>
+                  <TableRow
+                    key={call.id}
+                    className="cursor-pointer"
+                    onClick={() =>
+                      setExpandedId(expandedId === call.id ? null : call.id)
+                    }
+                  >
+                    <TableCell>{formatDate(call.created_at)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {call.persona.name}
+                        <Badge
+                          className={cn(
+                            'text-xs',
+                            difficultyColors[call.persona.difficulty_level as keyof typeof difficultyColors]
+                          )}
+                        >
+                          L{call.persona.difficulty_level}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {call.score ? (
+                        <span
+                          className={cn(
+                            'font-bold',
+                            getScoreColor(call.score.overall_score)
+                          )}
+                        >
+                          {call.score.overall_score}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>{formatDuration(call.duration_seconds)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {call.recording_url && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            asChild
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <a
+                              href={call.recording_url}
+                              target="_blank"
+                              rel="noopener"
+                            >
+                              <Play className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        )}
+                        {expandedId === call.id ? (
+                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  {expandedId === call.id && call.score && (
+                    <TableRow key={`${call.id}-details`}>
+                      <TableCell colSpan={5} className="bg-zinc-50">
+                        <div className="p-4 space-y-4">
+                          {/* Score Breakdown */}
+                          <div className="grid grid-cols-5 gap-4">
+                            <ScoreBox
+                              label="Tone"
+                              score={call.score.tone_score}
+                            />
+                            <ScoreBox
+                              label="Product Knowledge"
+                              score={call.score.product_knowledge_score}
+                            />
+                            <ScoreBox
+                              label="Objection Handling"
+                              score={call.score.objection_handling_score}
+                            />
+                            <ScoreBox
+                              label="Rapport Building"
+                              score={call.score.rapport_building_score}
+                            />
+                            <ScoreBox
+                              label="Closing"
+                              score={call.score.closing_technique_score}
+                            />
+                          </div>
+
+                          {/* AI Feedback */}
+                          {call.score.ai_feedback && (
+                            <div>
+                              <h4 className="font-medium mb-1">AI Feedback</h4>
+                              <p className="text-sm text-muted-foreground">
+                                {call.score.ai_feedback}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Strengths & Improvements */}
+                          <div className="grid grid-cols-2 gap-4">
+                            {call.score.strengths.length > 0 && (
+                              <div>
+                                <h4 className="font-medium text-green-600 mb-1">
+                                  Strengths
+                                </h4>
+                                <ul className="text-sm text-muted-foreground list-disc list-inside">
+                                  {call.score.strengths.map((s, i) => (
+                                    <li key={i}>{s}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {call.score.improvements.length > 0 && (
+                              <div>
+                                <h4 className="font-medium text-orange-600 mb-1">
+                                  Areas to Improve
+                                </h4>
+                                <ul className="text-sm text-muted-foreground list-disc list-inside">
+                                  {call.score.improvements.map((s, i) => (
+                                    <li key={i}>{s}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScoreBox({ label, score }: { label: string; score: number }) {
+  const getColor = (s: number) => {
+    if (s >= 80) return 'text-green-600 border-green-200 bg-green-50';
+    if (s >= 60) return 'text-yellow-600 border-yellow-200 bg-yellow-50';
+    return 'text-red-600 border-red-200 bg-red-50';
+  };
+
+  return (
+    <div className={cn('rounded-lg border p-3 text-center', getColor(score))}>
+      <div className="text-2xl font-bold">{score}</div>
+      <div className="text-xs">{label}</div>
+    </div>
+  );
+}
