@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSession } from '@/lib/auth';
-import { endCall, saveCallScore, getPersonaById } from '@/lib/db';
+import { endCall, saveCallScore, getPersonaById, processCallGamification } from '@/lib/db';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GamificationResult } from '@/types';
 
 function getSupabase() {
   return createClient(
@@ -151,10 +152,31 @@ Respond in this exact JSON format:
       }
     }
 
+    // Process gamification (XP, levels, achievements)
+    let gamification: GamificationResult | null = null;
+    if (score) {
+      try {
+        // Get difficulty from persona or dynamic persona
+        const difficulty = call.dynamic_persona_difficulty ||
+          (call.persona_id ? (await getPersonaById(call.persona_id))?.difficulty_level : 3) || 3;
+
+        gamification = await processCallGamification(
+          session.userId,
+          callId,
+          score.overall_score,
+          difficulty,
+          durationSeconds
+        );
+      } catch (err) {
+        console.error('Gamification processing error:', err);
+      }
+    }
+
     return NextResponse.json({
       call,
       score,
       recording_url: recordingUrl,
+      gamification,
     });
   } catch (error) {
     console.error('End call error:', error);

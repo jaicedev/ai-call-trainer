@@ -7,6 +7,11 @@ export interface User {
   is_admin: boolean;
   created_at: string;
   updated_at: string;
+  // Gamification fields
+  xp: number;
+  level: number;
+  total_calls_completed: number;
+  total_call_time_seconds: number;
 }
 
 export interface VerificationCode {
@@ -148,6 +153,64 @@ export interface SetPasswordRequest {
   email: string;
   code: string;
   password: string;
+}
+
+// Gamification types
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: 'calls' | 'score' | 'streak' | 'time' | 'special';
+  requirement: number;
+  xpReward: number;
+}
+
+export interface UserAchievement {
+  id: string;
+  user_id: string;
+  achievement_id: string;
+  unlocked_at: string;
+}
+
+export interface XPHistoryEntry {
+  id: string;
+  user_id: string;
+  call_id: string | null;
+  xp_amount: number;
+  reason: string;
+  created_at: string;
+}
+
+export interface GamificationResult {
+  xpGained: number;
+  newTotalXP: number;
+  previousLevel: number;
+  newLevel: number;
+  leveledUp: boolean;
+  newAchievements: Achievement[];
+}
+
+export interface LeaderboardEntry {
+  user: Pick<User, 'id' | 'name' | 'profile_picture_url'>;
+  xp: number;
+  level: number;
+  total_calls: number;
+  total_time_seconds: number;
+  average_score: number;
+  rank: number;
+}
+
+export interface LeaderboardData {
+  topByXP: LeaderboardEntry[];
+  topByCallCount: LeaderboardEntry[];
+  topByTime: LeaderboardEntry[];
+  topByScore: LeaderboardEntry[];
+  recentAchievements: {
+    user: Pick<User, 'id' | 'name' | 'profile_picture_url'>;
+    achievement: Achievement;
+    unlocked_at: string;
+  }[];
 }
 
 // Admin types

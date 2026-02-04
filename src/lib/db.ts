@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
-import { User, Persona, Call, CallScore, FeedComment, FeedReaction, CallWithDetails } from '@/types';
+import { User, Persona, Call, CallScore, FeedComment, FeedReaction, CallWithDetails, UserAchievement, XPHistoryEntry, Achievement, GamificationResult, LeaderboardEntry } from '@/types';
+import { calculateCallXP, calculateLevelFromXP, checkNewAchievements, getAchievementById, ACHIEVEMENTS } from './gamification';
 
 // Helper to get Supabase admin client (called at request time, not module load)
 function getSupabase() {
@@ -514,4 +515,262 @@ export async function deletePersona(id: string): Promise<boolean> {
     .eq('id', id);
 
   return !error;
+}
+
+// Gamification operations
+
+// Get user's unlocked achievements
+export async function getUserAchievements(userId: string): Promise<UserAchievement[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('user_achievements')
+    .select('*')
+    .eq('user_id', userId)
+    .order('unlocked_at', { ascending: false });
+
+  if (error) return [];
+  return data as UserAchievement[];
+}
+
+// Get user's XP history
+export async function getUserXPHistory(userId: string, limit: number = 20): Promise<XPHistoryEntry[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('xp_history')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) return [];
+  return data as XPHistoryEntry[];
+}
+
+// Award XP and check for achievements after a call
+export async function processCallGamification(
+  userId: string,
+  callId: string,
+  score: number,
+  difficulty: number,
+  durationSeconds: number
+): Promise<GamificationResult> {
+  const supabase = getSupabase();
+
+  // Get current user data
+  const { data: user } = await supabase
+    .from('users')
+    .select('xp, level, total_calls_completed, total_call_time_seconds')
+    .eq('id', userId)
+    .single();
+
+  const currentXP = user?.xp || 0;
+  const currentLevel = user?.level || 1;
+  const currentCalls = user?.total_calls_completed || 0;
+  const currentTime = user?.total_call_time_seconds || 0;
+
+  // Calculate XP for this call
+  const { totalXP, breakdown } = calculateCallXP(score, difficulty, durationSeconds);
+
+  // Calculate new totals
+  const newXP = currentXP + totalXP;
+  const newCalls = currentCalls + 1;
+  const newTime = currentTime + durationSeconds;
+  const newLevel = calculateLevelFromXP(newXP);
+
+  // Get user's existing achievements
+  const { data: existingAchievements } = await supabase
+    .from('user_achievements')
+    .select('achievement_id')
+    .eq('user_id', userId);
+
+  const unlockedIds = (existingAchievements || []).map((a) => a.achievement_id);
+
+  // Check for new achievements
+  const newAchievements = checkNewAchievements(
+    unlockedIds,
+    newCalls,
+    score,
+    newTime,
+    difficulty,
+    score,
+    durationSeconds
+  );
+
+  // Calculate total XP including achievement bonuses
+  let achievementBonusXP = 0;
+  for (const achievement of newAchievements) {
+    achievementBonusXP += achievement.xpReward;
+  }
+
+  const finalXP = newXP + achievementBonusXP;
+  const finalLevel = calculateLevelFromXP(finalXP);
+
+  // Update user stats
+  await supabase
+    .from('users')
+    .update({
+      xp: finalXP,
+      level: finalLevel,
+      total_calls_completed: newCalls,
+      total_call_time_seconds: newTime,
+    })
+    .eq('id', userId);
+
+  // Record XP history - main call XP
+  const xpReasonParts = [];
+  if (breakdown.base > 0) xpReasonParts.push(`Call: +${breakdown.base}`);
+  if (breakdown.score > 0) xpReasonParts.push(`Score: +${breakdown.score}`);
+  if (breakdown.difficulty > 0) xpReasonParts.push(`Difficulty: +${breakdown.difficulty}`);
+  if (breakdown.time > 0) xpReasonParts.push(`Time: +${breakdown.time}`);
+  if (breakdown.perfect > 0) xpReasonParts.push(`Perfect: +${breakdown.perfect}`);
+
+  await supabase.from('xp_history').insert({
+    user_id: userId,
+    call_id: callId,
+    xp_amount: totalXP,
+    reason: `Call completed (Score: ${score}) - ${xpReasonParts.join(', ')}`,
+  });
+
+  // Record achievements and their XP
+  for (const achievement of newAchievements) {
+    await supabase.from('user_achievements').insert({
+      user_id: userId,
+      achievement_id: achievement.id,
+    });
+
+    await supabase.from('xp_history').insert({
+      user_id: userId,
+      call_id: callId,
+      xp_amount: achievement.xpReward,
+      reason: `Achievement unlocked: ${achievement.name}`,
+    });
+  }
+
+  return {
+    xpGained: totalXP + achievementBonusXP,
+    newTotalXP: finalXP,
+    previousLevel: currentLevel,
+    newLevel: finalLevel,
+    leveledUp: finalLevel > currentLevel,
+    newAchievements,
+  };
+}
+
+// Get leaderboard data
+export async function getLeaderboard(limit: number = 10): Promise<{
+  topByXP: LeaderboardEntry[];
+  topByCallCount: LeaderboardEntry[];
+  topByTime: LeaderboardEntry[];
+  recentAchievements: { user: Pick<User, 'id' | 'name' | 'profile_picture_url'>; achievement: Achievement; unlocked_at: string }[];
+}> {
+  const supabase = getSupabase();
+
+  // Get all users with their stats
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, name, profile_picture_url, xp, level, total_calls_completed, total_call_time_seconds')
+    .order('xp', { ascending: false });
+
+  if (!users) {
+    return { topByXP: [], topByCallCount: [], topByTime: [], recentAchievements: [] };
+  }
+
+  // Get call scores for average calculation
+  const { data: allCalls } = await supabase
+    .from('calls')
+    .select(`
+      user_id,
+      score:call_scores(overall_score)
+    `)
+    .not('ended_at', 'is', null);
+
+  // Calculate average scores per user
+  const userScores: Record<string, number[]> = {};
+  for (const call of allCalls || []) {
+    const scoreData = call.score as unknown as { overall_score: number }[] | null;
+    if (scoreData && scoreData.length > 0) {
+      if (!userScores[call.user_id]) {
+        userScores[call.user_id] = [];
+      }
+      userScores[call.user_id].push(scoreData[0].overall_score);
+    }
+  }
+
+  // Transform to LeaderboardEntry with ranks
+  const entries: LeaderboardEntry[] = users.map((u, index) => {
+    const scores = userScores[u.id] || [];
+    const avgScore = scores.length > 0
+      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+      : 0;
+
+    return {
+      user: {
+        id: u.id,
+        name: u.name,
+        profile_picture_url: u.profile_picture_url,
+      },
+      xp: u.xp || 0,
+      level: u.level || 1,
+      total_calls: u.total_calls_completed || 0,
+      total_time_seconds: u.total_call_time_seconds || 0,
+      average_score: avgScore,
+      rank: index + 1,
+    };
+  });
+
+  // Sort for different leaderboards
+  const topByXP = entries.slice(0, limit);
+
+  const topByCallCount = [...entries]
+    .sort((a, b) => b.total_calls - a.total_calls)
+    .map((e, i) => ({ ...e, rank: i + 1 }))
+    .slice(0, limit);
+
+  const topByTime = [...entries]
+    .sort((a, b) => b.total_time_seconds - a.total_time_seconds)
+    .map((e, i) => ({ ...e, rank: i + 1 }))
+    .slice(0, limit);
+
+  // Get recent achievements
+  const { data: recentAchievementData } = await supabase
+    .from('user_achievements')
+    .select(`
+      achievement_id,
+      unlocked_at,
+      user:users(id, name, profile_picture_url)
+    `)
+    .order('unlocked_at', { ascending: false })
+    .limit(limit);
+
+  const recentAchievements = (recentAchievementData || [])
+    .map((a) => {
+      const achievement = getAchievementById(a.achievement_id);
+      if (!achievement) return null;
+      // Handle joined user data - it may come as array or object
+      const userData = Array.isArray(a.user) ? a.user[0] : a.user;
+      if (!userData) return null;
+      return {
+        user: userData as Pick<User, 'id' | 'name' | 'profile_picture_url'>,
+        achievement,
+        unlocked_at: a.unlocked_at,
+      };
+    })
+    .filter((a): a is NonNullable<typeof a> => a !== null);
+
+  return { topByXP, topByCallCount, topByTime, recentAchievements };
+}
+
+// Get user's rank
+export async function getUserRank(userId: string): Promise<number> {
+  const supabase = getSupabase();
+
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, xp')
+    .order('xp', { ascending: false });
+
+  if (!users) return 0;
+
+  const index = users.findIndex((u) => u.id === userId);
+  return index >= 0 ? index + 1 : 0;
 }
