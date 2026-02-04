@@ -91,7 +91,7 @@ export default function AchievementsPage() {
   const progressPercentage = Math.round((achievements.unlocked / achievements.total) * 100);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -147,25 +147,25 @@ export default function AchievementsPage() {
             </div>
             <Progress value={progressPercentage} className="h-3" />
             <div className="grid grid-cols-4 gap-2 pt-2">
-              <div className="text-center p-2 rounded-lg bg-blue-50">
+              <div className="text-center p-2 bg-blue-50">
                 <Phone className="h-4 w-4 mx-auto mb-1 text-blue-500" />
                 <p className="text-xs text-muted-foreground">
                   {callAchievements.filter((a) => a.unlocked).length}/{callAchievements.length}
                 </p>
               </div>
-              <div className="text-center p-2 rounded-lg bg-green-50">
+              <div className="text-center p-2 bg-green-50">
                 <Target className="h-4 w-4 mx-auto mb-1 text-green-500" />
                 <p className="text-xs text-muted-foreground">
                   {scoreAchievements.filter((a) => a.unlocked).length}/{scoreAchievements.length}
                 </p>
               </div>
-              <div className="text-center p-2 rounded-lg bg-purple-50">
+              <div className="text-center p-2 bg-purple-50">
                 <Clock className="h-4 w-4 mx-auto mb-1 text-purple-500" />
                 <p className="text-xs text-muted-foreground">
                   {timeAchievements.filter((a) => a.unlocked).length}/{timeAchievements.length}
                 </p>
               </div>
-              <div className="text-center p-2 rounded-lg bg-yellow-50">
+              <div className="text-center p-2 bg-yellow-50">
                 <Star className="h-4 w-4 mx-auto mb-1 text-yellow-500" />
                 <p className="text-xs text-muted-foreground">
                   {specialAchievements.filter((a) => a.unlocked).length}/{specialAchievements.length}

@@ -113,11 +113,11 @@ export function AudioPlayer({ src, className, compact = false }: AudioPlayerProp
         </Button>
         <div
           ref={progressRef}
-          className="flex-1 h-1.5 bg-zinc-200 rounded-full cursor-pointer min-w-[60px]"
+          className="flex-1 h-1.5 bg-zinc-200 cursor-pointer min-w-[60px]"
           onClick={handleProgressClick}
         >
           <div
-            className="h-full bg-primary rounded-full transition-all duration-100"
+            className="h-full bg-primary transition-all duration-100"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -131,7 +131,7 @@ export function AudioPlayer({ src, className, compact = false }: AudioPlayerProp
   return (
     <div
       className={cn(
-        'flex items-center gap-3 p-3 bg-zinc-50 rounded-lg border',
+        'flex items-center gap-3 p-3 bg-zinc-50 border',
         className
       )}
     >
@@ -154,11 +154,11 @@ export function AudioPlayer({ src, className, compact = false }: AudioPlayerProp
       <div className="flex-1 space-y-1">
         <div
           ref={progressRef}
-          className="h-2 bg-zinc-200 rounded-full cursor-pointer"
+          className="h-2 bg-zinc-200 cursor-pointer"
           onClick={handleProgressClick}
         >
           <div
-            className="h-full bg-primary rounded-full transition-all duration-100"
+            className="h-full bg-primary transition-all duration-100"
             style={{ width: `${progress}%` }}
           />
         </div>

@@ -11,9 +11,9 @@ export async function sendVerificationEmail(
   try {
     const resend = getResend();
     const { error } = await resend.emails.send({
-      from: 'MCA Trainer <noreply@ccapsolution.com>',
+      from: 'TalkMCA <noreply@ccapsolution.com>',
       to: email,
-      subject: 'Your MCA Trainer Verification Code',
+      subject: 'Your TalkMCA Verification Code',
       html: `
         <!DOCTYPE html>
         <html>
@@ -23,7 +23,8 @@ export async function sendVerificationEmail(
           </head>
           <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px 20px; background-color: #f5f5f5;">
             <div style="max-width: 400px; margin: 0 auto; background: white; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-              <h1 style="margin: 0 0 24px; font-size: 24px; color: #111;">MCA Trainer</h1>
+              <h1 style="margin: 0 0 8px; font-size: 24px; color: #111;"><span style="font-style: italic;">Talk</span><span style="color: #52525b;">MCA</span></h1>
+              <p style="margin: 0 0 24px; font-size: 10px; color: #71717a; letter-spacing: 1px; text-transform: uppercase;">Master the Art of Sales</p>
               <p style="margin: 0 0 24px; color: #666; line-height: 1.5;">
                 Enter this code to verify your email address:
               </p>

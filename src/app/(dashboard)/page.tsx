@@ -2,14 +2,27 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { FeedCard } from '@/components/feed/feed-card';
+import { MiniLeaderboard } from '@/components/gamification/mini-leaderboard';
+import { RecentAchievementsFeed } from '@/components/gamification/recent-achievements-feed';
 import { Loader2 } from 'lucide-react';
-import { CallWithDetails } from '@/types';
+import { CallWithDetails, LeaderboardEntry, Achievement, User } from '@/types';
+
+interface LeaderboardData {
+  topByXP: LeaderboardEntry[];
+  recentAchievements: {
+    user: Pick<User, 'id' | 'name' | 'profile_picture_url'>;
+    achievement: Achievement;
+    unlocked_at: string;
+  }[];
+}
 
 export default function FeedPage() {
   const [calls, setCalls] = useState<CallWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [leaderboardData, setLeaderboardData] = useState<LeaderboardData | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const loadCalls = useCallback(async (pageNum: number, append: boolean = false) => {
     try {
@@ -32,6 +45,30 @@ export default function FeedPage() {
 
   useEffect(() => {
     loadCalls(1);
+
+    // Fetch leaderboard data and current user for sidebar
+    const fetchSidebarData = async () => {
+      try {
+        const [leaderboardRes, userRes] = await Promise.all([
+          fetch('/api/leaderboard'),
+          fetch('/api/auth/me'),
+        ]);
+
+        if (leaderboardRes.ok) {
+          const data = await leaderboardRes.json();
+          setLeaderboardData(data);
+        }
+
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          setCurrentUserId(userData.id);
+        }
+      } catch (error) {
+        console.error('Failed to fetch sidebar data:', error);
+      }
+    };
+
+    fetchSidebarData();
   }, [loadCalls]);
 
   const handleLoadMore = () => {
@@ -102,40 +139,59 @@ export default function FeedPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold">Team Activity</h1>
-        <p className="text-muted-foreground">
-          See how your team is doing with their practice calls
-        </p>
-      </div>
-
-      {calls.length === 0 ? (
-        <div className="text-center py-12">
+    <div className="flex gap-6 py-8 px-4 max-w-7xl mx-auto">
+      {/* Main Feed */}
+      <div className="flex-1 max-w-2xl">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold">Team Activity</h1>
           <p className="text-muted-foreground">
-            No calls yet. Be the first to start a practice call!
+            See how your team is doing with their practice calls
           </p>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {calls.map((call) => (
-            <FeedCard
-              key={call.id}
-              call={call}
-              onReactionToggle={handleReactionToggle}
-            />
-          ))}
 
-          {hasMore && (
-            <button
-              onClick={handleLoadMore}
-              className="w-full py-3 text-sm text-muted-foreground hover:text-foreground"
-            >
-              Load more
-            </button>
-          )}
-        </div>
-      )}
+        {calls.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">
+              No calls yet. Be the first to start a practice call!
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {calls.map((call) => (
+              <FeedCard
+                key={call.id}
+                call={call}
+                onReactionToggle={handleReactionToggle}
+              />
+            ))}
+
+            {hasMore && (
+              <button
+                onClick={handleLoadMore}
+                className="w-full py-3 text-sm text-muted-foreground hover:text-foreground"
+              >
+                Load more
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Right Sidebar */}
+      <aside className="hidden lg:block w-80 shrink-0 space-y-4">
+        {leaderboardData?.topByXP && leaderboardData.topByXP.length > 0 && (
+          <MiniLeaderboard
+            entries={leaderboardData.topByXP}
+            currentUserId={currentUserId || undefined}
+          />
+        )}
+
+        {leaderboardData?.recentAchievements && leaderboardData.recentAchievements.length > 0 && (
+          <RecentAchievementsFeed
+            achievements={leaderboardData.recentAchievements}
+          />
+        )}
+      </aside>
     </div>
   );
 }

@@ -28,7 +28,7 @@ export function XPProgressBar({
       <div className={cn('flex items-center gap-2', className)}>
         <LevelBadge level={level} size="sm" />
         <div className="flex-1">
-          <div className="h-2 w-full bg-zinc-200 rounded-full overflow-hidden">
+          <div className="h-2 w-full bg-zinc-200 overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500"
               style={{ width: `${progress.percentage}%` }}
@@ -51,7 +51,7 @@ export function XPProgressBar({
         </span>
       </div>
 
-      <div className="h-3 w-full bg-zinc-200 rounded-full overflow-hidden">
+      <div className="h-3 w-full bg-zinc-200 overflow-hidden">
         <div
           className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500"
           style={{ width: `${progress.percentage}%` }}

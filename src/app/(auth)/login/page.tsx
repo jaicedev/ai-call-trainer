@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { MessageCircle } from 'lucide-react';
 
 type Step = 'email' | 'verify' | 'password' | 'login';
 
@@ -150,7 +151,14 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-zinc-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">MCA Trainer</CardTitle>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <MessageCircle className="h-8 w-8 text-zinc-800" />
+            <CardTitle className="text-2xl font-bold tracking-tight">
+              <span className="italic">Talk</span>
+              <span className="text-zinc-600">MCA</span>
+            </CardTitle>
+          </div>
+          <p className="text-xs text-zinc-500 tracking-wide uppercase mb-2">Master the Art of Sales</p>
           <CardDescription>
             {step === 'email' && 'Enter your company email to get started'}
             {step === 'verify' && 'Enter the verification code sent to your email'}

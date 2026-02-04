@@ -69,7 +69,7 @@ export function LeaderboardTable({ entries, type, currentUserId, className }: Le
             <div
               key={entry.user.id}
               className={cn(
-                'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
+                'flex items-center gap-3 px-4 py-3 transition-colors',
                 isCurrentUser
                   ? 'bg-blue-50 border border-blue-200'
                   : 'hover:bg-zinc-50'
