@@ -38,6 +38,8 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const isPlayingAudioRef = useRef<boolean>(false);
+  const isConnectingRef = useRef<boolean>(false);
+  const connectionIdRef = useRef<number>(0);
 
   // Initialize Audio Context
   const ensureAudioContext = async () => {
@@ -163,11 +165,23 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   // Connect to Gemini Live
   const connect = useCallback(
     async (personaInstruction: string, voice: GeminiVoice = "Puck") => {
+      // Prevent double connections
+      if (isConnectingRef.current || wsRef.current?.readyState === WebSocket.OPEN) {
+        console.log("[Gemini] Connection already in progress or active, skipping");
+        return;
+      }
+
       if (!GEMINI_API_KEY) {
-        console.error("Gemini API Key missing");
+        console.error("[Gemini] API Key missing");
         options.onError?.("API Key missing");
         return;
       }
+
+      // Mark as connecting and increment connection ID
+      isConnectingRef.current = true;
+      connectionIdRef.current += 1;
+      const thisConnectionId = connectionIdRef.current;
+      console.log(`[Gemini] Starting connection #${thisConnectionId}`);
 
       await ensureAudioContext();
 
@@ -181,7 +195,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log("Connected to Gemini Live");
+        console.log(`[Gemini] WebSocket opened for connection #${thisConnectionId}`);
 
         // Send Setup Message
         const setupMessage = {
@@ -210,7 +224,8 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
 
           // Handle setup completion
           if (response.setupComplete) {
-            console.log("Gemini setup complete");
+            console.log(`[Gemini] Setup complete for connection #${thisConnectionId}`);
+            isConnectingRef.current = false;
             options.onSetupComplete?.();
             return;
           }
@@ -287,12 +302,14 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       };
 
       ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
+        console.error(`[Gemini] WebSocket error for connection #${thisConnectionId}:`, error);
+        isConnectingRef.current = false;
         options.onError?.("Connection error");
       };
 
-      ws.onclose = () => {
-        console.log("Disconnected from Gemini Live");
+      ws.onclose = (event) => {
+        console.log(`[Gemini] WebSocket closed for connection #${thisConnectionId}, code: ${event.code}, reason: ${event.reason || 'none'}`);
+        isConnectingRef.current = false;
         setIsConnected(false);
         setIsPlaying(false);
         setCurrentSpeaker(null);
@@ -303,7 +320,14 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
 
   // Disconnect and cleanup
   const disconnect = useCallback(() => {
-    wsRef.current?.close();
+    console.log(`[Gemini] Disconnect called, closing connection #${connectionIdRef.current}`);
+    isConnectingRef.current = false;
+
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
     streamRef.current?.getTracks().forEach((track) => track.stop());
     audioInputRef.current?.disconnect();
     workletNodeRef.current?.disconnect();

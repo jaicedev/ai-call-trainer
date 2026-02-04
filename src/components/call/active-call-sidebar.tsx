@@ -60,6 +60,7 @@ export function ActiveCallSidebar() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const setupCompleteRef = useRef<boolean>(false);
+  const hasInitiatedConnectionRef = useRef<boolean>(false);
 
   const { playRingTone, stopAllTones, cleanup: cleanupDialTone } = useDialTone();
 
@@ -110,8 +111,11 @@ export function ActiveCallSidebar() {
 
   // Handle connecting state - initialize Gemini
   useEffect(() => {
-    if (status === 'connecting' && persona) {
+    if (status === 'connecting' && persona && !hasInitiatedConnectionRef.current) {
+      hasInitiatedConnectionRef.current = true;
       setupCompleteRef.current = false;
+
+      console.log('[CallSidebar] Initiating Gemini connection for persona:', persona.name);
 
       const personaInstruction = `${persona.personality_prompt}
 
@@ -131,6 +135,11 @@ Important instructions:
 
       const voice = getVoiceForPersona(persona);
       connect(personaInstruction, voice);
+    }
+
+    // Reset the flag when status changes away from connecting
+    if (status !== 'connecting') {
+      hasInitiatedConnectionRef.current = false;
     }
   }, [status, persona, connect]);
 
