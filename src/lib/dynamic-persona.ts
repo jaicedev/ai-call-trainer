@@ -1,5 +1,53 @@
 import { GeminiVoice } from "@/hooks/use-gemini-live";
 
+// Gender type for persona generation
+export type PersonaGender = "male" | "female";
+
+// Voice metadata with gender and tonal characteristics from Gemini API
+export const VOICE_METADATA: Record<GeminiVoice, { gender: PersonaGender; tone: string }> = {
+  // Female voices
+  Achernar: { gender: "female", tone: "Soft, Gentle" },
+  Aoede: { gender: "female", tone: "Breezy, Light" },
+  Autonoe: { gender: "female", tone: "Bright, Cheerful" },
+  Callirrhoe: { gender: "female", tone: "Easy-going, Relaxed" },
+  Despina: { gender: "female", tone: "Smooth, Warm, Inviting" },
+  Erinome: { gender: "female", tone: "Clear, Crisp" },
+  Gacrux: { gender: "female", tone: "Mature, Knowledgeable" },
+  Kore: { gender: "female", tone: "Firm, Professional, Neutral" },
+  Laomedeia: { gender: "female", tone: "Upbeat, Positive" },
+  Leda: { gender: "female", tone: "Youthful, Fresh" },
+  Pulcherrima: { gender: "female", tone: "Forward, Bright, Energetic" },
+  Sulafat: { gender: "female", tone: "Warm, Persuasive" },
+  Vindemiatrix: { gender: "female", tone: "Gentle, Calm, Thoughtful" },
+  Zephyr: { gender: "female", tone: "Bright, Perky, Enthusiastic" },
+  // Male voices
+  Achird: { gender: "male", tone: "Friendly, Approachable" },
+  Algenib: { gender: "male", tone: "Gravelly, Textured" },
+  Algieba: { gender: "male", tone: "Smooth, Polished" },
+  Alnilam: { gender: "male", tone: "Firm, Grounded" },
+  Charon: { gender: "male", tone: "Deep, Authoritative, Informative" },
+  Enceladus: { gender: "male", tone: "Breathy, Soft" },
+  Fenrir: { gender: "male", tone: "Excitable, Energetic, Warm" },
+  Iapetus: { gender: "male", tone: "Clear, Direct" },
+  Orbit: { gender: "male", tone: "Energetic, Deep" },
+  Orus: { gender: "male", tone: "Firm, Confident" },
+  Puck: { gender: "male", tone: "Upbeat, Casual" },
+  Rasalgethi: { gender: "male", tone: "Informative, Educational" },
+  Sadachbia: { gender: "male", tone: "Lively, Dynamic" },
+  Sadaltager: { gender: "male", tone: "Knowledgeable, Assured" },
+  Schedar: { gender: "male", tone: "Even, Balanced" },
+  Zubenelgenubi: { gender: "male", tone: "Casual, Relaxed" },
+};
+
+// Helper to get voices by gender
+export const MALE_VOICES = Object.entries(VOICE_METADATA)
+  .filter(([, meta]) => meta.gender === "male")
+  .map(([voice]) => voice as GeminiVoice);
+
+export const FEMALE_VOICES = Object.entries(VOICE_METADATA)
+  .filter(([, meta]) => meta.gender === "female")
+  .map(([voice]) => voice as GeminiVoice);
+
 // Personality trait types
 export interface PersonalityTraits {
   openness: "low" | "medium" | "high";
@@ -41,13 +89,21 @@ export interface DynamicPersona {
   description: string;
 }
 
-// Name pools for variety
-const FIRST_NAMES = [
-  "Alex", "Jordan", "Morgan", "Casey", "Taylor", "Riley", "Quinn", "Drew",
-  "Sam", "Jamie", "Avery", "Parker", "Reese", "Blake", "Cameron", "Dakota",
-  "Emerson", "Finley", "Harper", "Kennedy", "Logan", "Madison", "Peyton", "Reagan",
-  "Michael", "Sarah", "David", "Emily", "Robert", "Jennifer", "James", "Lisa",
-  "William", "Elizabeth", "Richard", "Susan", "Thomas", "Margaret", "Charles", "Patricia"
+// Name pools by gender for realistic voice matching
+const MALE_FIRST_NAMES = [
+  "Michael", "David", "Robert", "James", "William", "Richard", "Thomas", "Charles",
+  "Joseph", "Daniel", "Matthew", "Anthony", "Mark", "Donald", "Steven", "Paul",
+  "Andrew", "Joshua", "Kenneth", "Kevin", "Brian", "George", "Timothy", "Ronald",
+  "Edward", "Jason", "Jeffrey", "Ryan", "Jacob", "Gary", "Nicholas", "Eric",
+  "Jonathan", "Stephen", "Larry", "Justin", "Scott", "Brandon", "Benjamin", "Samuel"
+];
+
+const FEMALE_FIRST_NAMES = [
+  "Sarah", "Emily", "Jennifer", "Lisa", "Elizabeth", "Susan", "Margaret", "Patricia",
+  "Jessica", "Nancy", "Karen", "Betty", "Helen", "Sandra", "Donna", "Carol",
+  "Ruth", "Sharon", "Michelle", "Laura", "Kimberly", "Deborah", "Dorothy", "Linda",
+  "Amanda", "Melissa", "Stephanie", "Rebecca", "Sharon", "Cynthia", "Angela", "Nicole",
+  "Rachel", "Kathleen", "Christine", "Janet", "Catherine", "Diane", "Samantha", "Heather"
 ];
 
 const LAST_NAMES = [
@@ -268,71 +324,83 @@ const BUSINESS_CONTEXTS: { type: string; needs: string[] }[] = [
   { type: "Cleaning Service Owner", needs: ["equipment", "vehicles", "employee uniforms", "commercial contracts"] }
 ];
 
-// Personality archetypes with descriptions
+// Personality archetypes with gender-specific voice options
+// Voice selections match tonal characteristics to personality traits
 const PERSONALITY_ARCHETYPES: {
   name: string;
   traits: PersonalityTraits;
-  voiceStyles: GeminiVoice[];
+  maleVoices: GeminiVoice[];
+  femaleVoices: GeminiVoice[];
   difficulty: 1 | 2 | 3 | 4 | 5;
 }[] = [
   {
     name: "The Eager Entrepreneur",
     traits: { openness: "high", friendliness: "warm", decisiveness: "decisive", skepticism: "trusting", patience: "patient", communication: "talkative" },
-    voiceStyles: ["Puck", "Aoede", "Leda", "Zephyr", "Callirrhoe"],
+    maleVoices: ["Puck", "Fenrir", "Achird", "Sadachbia"],  // Upbeat, Energetic, Friendly
+    femaleVoices: ["Zephyr", "Leda", "Aoede", "Laomedeia", "Autonoe"],  // Bright, Fresh, Upbeat
     difficulty: 1
   },
   {
     name: "The Curious Questioner",
     traits: { openness: "high", friendliness: "neutral", decisiveness: "cautious", skepticism: "neutral", patience: "patient", communication: "balanced" },
-    voiceStyles: ["Kore", "Schedar", "Pulcherrima", "Vindemiatrix", "Sadachbia"],
+    maleVoices: ["Schedar", "Rasalgethi", "Sadaltager", "Algieba"],  // Balanced, Informative, Knowledgeable
+    femaleVoices: ["Kore", "Vindemiatrix", "Pulcherrima", "Erinome"],  // Professional, Thoughtful, Clear
     difficulty: 2
   },
   {
     name: "The Busy Executive",
     traits: { openness: "medium", friendliness: "neutral", decisiveness: "decisive", skepticism: "neutral", patience: "impatient", communication: "brief" },
-    voiceStyles: ["Charon", "Orus", "Algenib", "Gacrux", "Rasalgethi"],
+    maleVoices: ["Charon", "Orus", "Iapetus", "Alnilam"],  // Deep, Authoritative, Direct, Firm
+    femaleVoices: ["Gacrux", "Kore", "Erinome"],  // Mature, Professional, Clear
     difficulty: 3
   },
   {
     name: "The Cautious Analyst",
     traits: { openness: "medium", friendliness: "cold", decisiveness: "cautious", skepticism: "skeptical", patience: "moderate", communication: "balanced" },
-    voiceStyles: ["Charon", "Iapetus", "Algieba", "Achernar", "Sadaltager"],
+    maleVoices: ["Charon", "Sadaltager", "Algieba", "Schedar"],  // Authoritative, Knowledgeable, Polished
+    femaleVoices: ["Achernar", "Vindemiatrix", "Kore", "Gacrux"],  // Soft, Thoughtful, Professional
     difficulty: 3
   },
   {
     name: "The Skeptical Veteran",
     traits: { openness: "low", friendliness: "cold", decisiveness: "cautious", skepticism: "skeptical", patience: "impatient", communication: "brief" },
-    voiceStyles: ["Fenrir", "Enceladus", "Despina", "Achird", "Sulafat"],
+    maleVoices: ["Algenib", "Alnilam", "Iapetus", "Orus"],  // Gravelly, Firm, Direct
+    femaleVoices: ["Sulafat", "Gacrux", "Kore", "Erinome"],  // Warm but Persuasive, Mature, Clear
     difficulty: 4
   },
   {
     name: "The Indecisive Worrier",
     traits: { openness: "medium", friendliness: "warm", decisiveness: "indecisive", skepticism: "neutral", patience: "patient", communication: "talkative" },
-    voiceStyles: ["Aoede", "Autonoe", "Laomedeia", "Erinome", "Zubenelgenubi"],
+    maleVoices: ["Enceladus", "Achird", "Zubenelgenubi", "Puck"],  // Breathy, Friendly, Casual
+    femaleVoices: ["Aoede", "Autonoe", "Laomedeia", "Callirrhoe", "Despina"],  // Breezy, Cheerful, Relaxed
     difficulty: 3
   },
   {
     name: "The Hostile Gatekeeper",
     traits: { openness: "low", friendliness: "cold", decisiveness: "decisive", skepticism: "skeptical", patience: "impatient", communication: "brief" },
-    voiceStyles: ["Fenrir", "Enceladus", "Iapetus", "Alnilam", "Sulafat"],
+    maleVoices: ["Algenib", "Alnilam", "Iapetus", "Charon", "Orus"],  // Gravelly, Firm, Direct, Authoritative
+    femaleVoices: ["Kore", "Erinome", "Gacrux"],  // Firm, Crisp, Mature
     difficulty: 5
   },
   {
     name: "The Friendly But Firm",
     traits: { openness: "medium", friendliness: "warm", decisiveness: "decisive", skepticism: "skeptical", patience: "moderate", communication: "balanced" },
-    voiceStyles: ["Puck", "Kore", "Leda", "Callirrhoe", "Vindemiatrix"],
+    maleVoices: ["Puck", "Achird", "Orbit", "Sadachbia"],  // Upbeat, Friendly, Energetic
+    femaleVoices: ["Despina", "Callirrhoe", "Sulafat", "Vindemiatrix"],  // Warm, Inviting, Persuasive
     difficulty: 3
   },
   {
     name: "The Time-Pressed Professional",
     traits: { openness: "medium", friendliness: "neutral", decisiveness: "decisive", skepticism: "neutral", patience: "impatient", communication: "brief" },
-    voiceStyles: ["Charon", "Orus", "Algenib", "Rasalgethi", "Gacrux"],
+    maleVoices: ["Charon", "Orus", "Iapetus", "Alnilam", "Orbit"],  // Deep, Firm, Direct
+    femaleVoices: ["Kore", "Erinome", "Pulcherrima", "Gacrux"],  // Professional, Clear, Energetic
     difficulty: 4
   },
   {
     name: "The Warm Negotiator",
     traits: { openness: "high", friendliness: "warm", decisiveness: "cautious", skepticism: "neutral", patience: "patient", communication: "talkative" },
-    voiceStyles: ["Puck", "Aoede", "Zephyr", "Leda", "Pulcherrima"],
+    maleVoices: ["Puck", "Achird", "Fenrir", "Zubenelgenubi"],  // Upbeat, Friendly, Warm, Relaxed
+    femaleVoices: ["Sulafat", "Despina", "Aoede", "Leda", "Zephyr"],  // Warm, Persuasive, Inviting
     difficulty: 2
   }
 ];
@@ -482,13 +550,19 @@ export function generateDynamicPersona(): DynamicPersona {
   // Pick random archetype
   const archetype = randomItem(PERSONALITY_ARCHETYPES);
 
-  // Pick random name
-  const firstName = randomItem(FIRST_NAMES);
+  // Pick random gender first - this determines both name and voice
+  const gender: PersonaGender = randomItem(["male", "female"]);
+
+  // Pick name matching the gender
+  const firstName = gender === "male"
+    ? randomItem(MALE_FIRST_NAMES)
+    : randomItem(FEMALE_FIRST_NAMES);
   const lastName = randomItem(LAST_NAMES);
   const name = `${firstName} ${lastName}`;
 
-  // Pick random voice from archetype's preferred voices
-  const voice = randomItem(archetype.voiceStyles);
+  // Pick voice matching the gender from archetype's preferred voices
+  const genderVoices = gender === "male" ? archetype.maleVoices : archetype.femaleVoices;
+  const voice = randomItem(genderVoices);
 
   // Pick random business context
   const businessContextBase = randomItem(BUSINESS_CONTEXTS);

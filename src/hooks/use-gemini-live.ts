@@ -10,7 +10,7 @@ export const GEMINI_VOICES = [
   "Callirrhoe", "Autonoe", "Enceladus", "Iapetus", "Algieba", "Despina",
   "Erinome", "Algenib", "Rasalgethi", "Laomedeia", "Achernar", "Alnilam",
   "Schedar", "Gacrux", "Pulcherrima", "Achird", "Zubenelgenubi", "Vindemiatrix",
-  "Sadachbia", "Sadaltager", "Sulafat"
+  "Sadachbia", "Sadaltager", "Sulafat", "Orbit"
 ] as const;
 
 export type GeminiVoice = typeof GEMINI_VOICES[number];
