@@ -139,9 +139,9 @@ export default function FeedPage() {
   }
 
   return (
-    <div className="flex gap-6 py-8 px-4 max-w-7xl mx-auto">
+    <div className="flex gap-6 py-8 px-4">
       {/* Main Feed */}
-      <div className="flex-1 max-w-2xl">
+      <div className="flex-1">
         <div className="mb-8">
           <h1 className="text-2xl font-bold">Team Activity</h1>
           <p className="text-muted-foreground">
