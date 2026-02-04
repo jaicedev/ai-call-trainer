@@ -12,18 +12,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Phone, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useCallStore, Persona } from '@/stores/call-store';
 
-interface Persona {
+interface PersonaFromAPI {
   id: string;
   name: string;
   description: string;
+  personality_prompt: string;
   difficulty_level: 1 | 2 | 3 | 4 | 5;
 }
 
 interface StartCallModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  userId: string;
 }
 
 const difficultyColors = {
@@ -45,12 +46,13 @@ const difficultyLabels = {
 export function StartCallModal({
   open,
   onOpenChange,
-  userId,
 }: StartCallModalProps) {
-  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [personas, setPersonas] = useState<PersonaFromAPI[]>([]);
   const [selectedPersona, setSelectedPersona] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
+
+  const { startDialing } = useCallStore();
 
   useEffect(() => {
     if (open) {
@@ -74,6 +76,9 @@ export function StartCallModal({
   const handleStartCall = async () => {
     if (!selectedPersona) return;
 
+    const selected = personas.find((p) => p.id === selectedPersona);
+    if (!selected) return;
+
     setStarting(true);
     try {
       const res = await fetch('/api/calls/start', {
@@ -85,8 +90,17 @@ export function StartCallModal({
       const data = await res.json();
 
       if (data.callId) {
-        // Navigate to call page or open call interface
-        window.location.href = `/call/${data.callId}`;
+        // Start the call in the sidebar instead of navigating
+        const persona: Persona = {
+          id: selected.id,
+          name: selected.name,
+          description: selected.description,
+          personality_prompt: selected.personality_prompt,
+          difficulty_level: selected.difficulty_level,
+        };
+        startDialing(data.callId, persona);
+        onOpenChange(false);
+        setSelectedPersona(null);
       }
     } catch (err) {
       console.error('Failed to start call:', err);
