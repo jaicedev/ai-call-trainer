@@ -160,14 +160,14 @@ export default function HistoryPage() {
                     <TableCell>{formatDate(call.created_at)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {call.persona.name}
+                        {call.persona?.name || call.dynamic_persona_name || 'Unknown'}
                         <Badge
                           className={cn(
                             'text-xs',
-                            difficultyColors[call.persona.difficulty_level as keyof typeof difficultyColors]
+                            difficultyColors[(call.persona?.difficulty_level || call.dynamic_persona_difficulty || 1) as keyof typeof difficultyColors]
                           )}
                         >
-                          L{call.persona.difficulty_level}
+                          L{call.persona?.difficulty_level || call.dynamic_persona_difficulty || 1}
                         </Badge>
                       </div>
                     </TableCell>
