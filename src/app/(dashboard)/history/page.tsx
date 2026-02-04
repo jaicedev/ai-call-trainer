@@ -10,10 +10,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Loader2, Play, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CallWithDetails } from '@/types';
+import { AudioPlayer } from '@/components/ui/audio-player';
 
 const difficultyColors = {
   1: 'bg-green-100 text-green-800',
@@ -187,23 +187,7 @@ export default function HistoryPage() {
                     </TableCell>
                     <TableCell>{formatDuration(call.duration_seconds)}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        {call.recording_url && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            asChild
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <a
-                              href={call.recording_url}
-                              target="_blank"
-                              rel="noopener"
-                            >
-                              <Play className="h-4 w-4" />
-                            </a>
-                          </Button>
-                        )}
+                      <div className="flex items-center justify-end">
                         {expandedId === call.id ? (
                           <ChevronUp className="h-4 w-4 text-muted-foreground" />
                         ) : (
@@ -212,71 +196,83 @@ export default function HistoryPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                  {expandedId === call.id && call.score && (
+                  {expandedId === call.id && (call.score || call.recording_url) && (
                     <TableRow key={`${call.id}-details`}>
                       <TableCell colSpan={5} className="bg-zinc-50">
                         <div className="p-4 space-y-4">
-                          {/* Score Breakdown */}
-                          <div className="grid grid-cols-5 gap-4">
-                            <ScoreBox
-                              label="Tone"
-                              score={call.score.tone_score}
-                            />
-                            <ScoreBox
-                              label="Product Knowledge"
-                              score={call.score.product_knowledge_score}
-                            />
-                            <ScoreBox
-                              label="Objection Handling"
-                              score={call.score.objection_handling_score}
-                            />
-                            <ScoreBox
-                              label="Rapport Building"
-                              score={call.score.rapport_building_score}
-                            />
-                            <ScoreBox
-                              label="Closing"
-                              score={call.score.closing_technique_score}
-                            />
-                          </div>
-
-                          {/* AI Feedback */}
-                          {call.score.ai_feedback && (
+                          {/* Audio Player */}
+                          {call.recording_url && (
                             <div>
-                              <h4 className="font-medium mb-1">AI Feedback</h4>
-                              <p className="text-sm text-muted-foreground">
-                                {call.score.ai_feedback}
-                              </p>
+                              <h4 className="font-medium mb-2">Recording</h4>
+                              <AudioPlayer src={call.recording_url} />
                             </div>
                           )}
 
-                          {/* Strengths & Improvements */}
-                          <div className="grid grid-cols-2 gap-4">
-                            {call.score.strengths.length > 0 && (
-                              <div>
-                                <h4 className="font-medium text-green-600 mb-1">
-                                  Strengths
-                                </h4>
-                                <ul className="text-sm text-muted-foreground list-disc list-inside">
-                                  {call.score.strengths.map((s, i) => (
-                                    <li key={i}>{s}</li>
-                                  ))}
-                                </ul>
+                          {/* Score Breakdown */}
+                          {call.score && (
+                            <>
+                              <div className="grid grid-cols-5 gap-4">
+                                <ScoreBox
+                                  label="Tone"
+                                  score={call.score.tone_score}
+                                />
+                                <ScoreBox
+                                  label="Product Knowledge"
+                                  score={call.score.product_knowledge_score}
+                                />
+                                <ScoreBox
+                                  label="Objection Handling"
+                                  score={call.score.objection_handling_score}
+                                />
+                                <ScoreBox
+                                  label="Rapport Building"
+                                  score={call.score.rapport_building_score}
+                                />
+                                <ScoreBox
+                                  label="Closing"
+                                  score={call.score.closing_technique_score}
+                                />
                               </div>
-                            )}
-                            {call.score.improvements.length > 0 && (
-                              <div>
-                                <h4 className="font-medium text-orange-600 mb-1">
-                                  Areas to Improve
-                                </h4>
-                                <ul className="text-sm text-muted-foreground list-disc list-inside">
-                                  {call.score.improvements.map((s, i) => (
-                                    <li key={i}>{s}</li>
-                                  ))}
-                                </ul>
+
+                              {/* AI Feedback */}
+                              {call.score.ai_feedback && (
+                                <div>
+                                  <h4 className="font-medium mb-1">AI Feedback</h4>
+                                  <p className="text-sm text-muted-foreground">
+                                    {call.score.ai_feedback}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Strengths & Improvements */}
+                              <div className="grid grid-cols-2 gap-4">
+                                {call.score.strengths.length > 0 && (
+                                  <div>
+                                    <h4 className="font-medium text-green-600 mb-1">
+                                      Strengths
+                                    </h4>
+                                    <ul className="text-sm text-muted-foreground list-disc list-inside">
+                                      {call.score.strengths.map((s, i) => (
+                                        <li key={i}>{s}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                {call.score.improvements.length > 0 && (
+                                  <div>
+                                    <h4 className="font-medium text-orange-600 mb-1">
+                                      Areas to Improve
+                                    </h4>
+                                    <ul className="text-sm text-muted-foreground list-disc list-inside">
+                                      {call.score.improvements.map((s, i) => (
+                                        <li key={i}>{s}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
