@@ -88,7 +88,7 @@ export function FeedCard({ call, onReactionToggle }: FeedCardProps) {
     return scoreColors.low;
   };
 
-  const initials = call.user.name
+  const initials = call.user?.name
     ? call.user.name
         .split(' ')
         .map((n) => n[0])
@@ -102,11 +102,11 @@ export function FeedCard({ call, onReactionToggle }: FeedCardProps) {
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <Avatar>
-              <AvatarImage src={call.user.profile_picture_url || undefined} />
+              <AvatarImage src={call.user?.profile_picture_url || undefined} />
               <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium">{call.user.name || 'Anonymous'}</p>
+              <p className="font-medium">{call.user?.name || 'Anonymous'}</p>
               <p className="text-sm text-muted-foreground">
                 practiced with{' '}
                 <span className="font-medium">{call.persona?.name || call.dynamic_persona_name || 'Dynamic Persona'}</span>
