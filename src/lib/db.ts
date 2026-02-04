@@ -239,6 +239,34 @@ export async function createCall(
   return data as Call;
 }
 
+// Create call with dynamic persona (no database persona reference)
+export async function createCallWithDynamicPersona(
+  userId: string,
+  personaName: string,
+  personaDescription: string,
+  difficulty: number
+): Promise<Call | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('calls')
+    .insert({
+      user_id: userId,
+      persona_id: null, // No database persona for dynamic calls
+      started_at: new Date().toISOString(),
+      dynamic_persona_name: personaName,
+      dynamic_persona_description: personaDescription,
+      dynamic_persona_difficulty: difficulty,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Create dynamic call error:', error);
+    return null;
+  }
+  return data as Call;
+}
+
 export async function endCall(
   callId: string,
   recordingUrl: string | null,

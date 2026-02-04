@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { TranscriptEntry } from '@/hooks/use-gemini-live';
+import { TranscriptEntry, GeminiVoice } from '@/hooks/use-gemini-live';
 import { CallScore } from '@/types';
+import { DynamicPersona, getPersonaSummary } from '@/lib/dynamic-persona';
 
 export interface Persona {
   id: string;
@@ -8,6 +9,17 @@ export interface Persona {
   description: string;
   personality_prompt: string;
   difficulty_level: number;
+  // Dynamic persona fields
+  voice?: GeminiVoice;
+  isDynamic?: boolean;
+}
+
+export interface PersonaReveal {
+  personalityType: string;
+  keyTraits: string[];
+  businessInfo: string;
+  challengeLevel: string;
+  tips: string[];
 }
 
 export type CallStatus =
@@ -24,6 +36,8 @@ interface CallState {
   status: CallStatus;
   callId: string | null;
   persona: Persona | null;
+  dynamicPersona: DynamicPersona | null;
+  personaReveal: PersonaReveal | null;
   duration: number;
   transcript: TranscriptEntry[];
   score: CallScore | null;
@@ -35,7 +49,7 @@ interface CallState {
   sidebarOpen: boolean;
 
   // Actions
-  startDialing: (callId: string, persona: Persona) => void;
+  startDialing: (callId: string, persona: Persona, dynamicPersona?: DynamicPersona) => void;
   setConnecting: () => void;
   setConnected: () => void;
   setEnding: () => void;
@@ -55,6 +69,8 @@ const initialState = {
   status: 'idle' as CallStatus,
   callId: null,
   persona: null,
+  dynamicPersona: null,
+  personaReveal: null,
   duration: 0,
   transcript: [],
   score: null,
@@ -67,10 +83,12 @@ const initialState = {
 export const useCallStore = create<CallState>((set) => ({
   ...initialState,
 
-  startDialing: (callId, persona) => set({
+  startDialing: (callId, persona, dynamicPersona) => set({
     status: 'dialing',
     callId,
     persona,
+    dynamicPersona: dynamicPersona || null,
+    personaReveal: null,
     sidebarOpen: true,
     transcript: [],
     score: null,
@@ -85,7 +103,11 @@ export const useCallStore = create<CallState>((set) => ({
 
   setEnding: () => set({ status: 'ending' }),
 
-  setEnded: (score) => set({ status: 'ended', score }),
+  setEnded: (score) => set((state) => ({
+    status: 'ended',
+    score,
+    personaReveal: state.dynamicPersona ? getPersonaSummary(state.dynamicPersona) : null,
+  })),
 
   setError: (error) => set({ status: 'error', error }),
 
