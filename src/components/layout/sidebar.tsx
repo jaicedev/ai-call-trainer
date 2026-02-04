@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -20,8 +21,12 @@ import {
   LogOut,
   Shield,
   ChevronUp,
+  Trophy,
+  Award,
+  MessageCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { XPProgressBar } from '@/components/gamification/xp-progress-bar';
 
 interface User {
   id: string;
@@ -29,6 +34,8 @@ interface User {
   name: string | null;
   profile_picture_url: string | null;
   is_admin: boolean;
+  xp?: number;
+  level?: number;
 }
 
 interface SidebarProps {
@@ -39,11 +46,41 @@ interface SidebarProps {
 const navItems = [
   { href: '/', label: 'Feed', icon: Home },
   { href: '/history', label: 'Call History', icon: History },
+  { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
+  { href: '/achievements', label: 'Achievements', icon: Award },
 ];
 
 export function Sidebar({ user, onStartCall }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [userStats, setUserStats] = useState<{ xp: number; level: number } | null>(null);
+
+  useEffect(() => {
+    // Fetch user stats for XP display
+    const fetchStats = async () => {
+      try {
+        const res = await fetch('/api/user/stats');
+        if (res.ok) {
+          const data = await res.json();
+          setUserStats({ xp: data.xp, level: data.level });
+        }
+      } catch (error) {
+        console.error('Failed to fetch user stats:', error);
+      }
+    };
+
+    fetchStats();
+
+    // Listen for gamification updates
+    const handleGamificationUpdate = () => {
+      fetchStats();
+    };
+
+    window.addEventListener('gamification-update', handleGamificationUpdate);
+    return () => {
+      window.removeEventListener('gamification-update', handleGamificationUpdate);
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -67,8 +104,14 @@ export function Sidebar({ user, onStartCall }: SidebarProps) {
       {/* Logo */}
       <div className="flex h-16 items-center border-b px-6">
         <Link href="/" className="flex items-center gap-2">
-          <Phone className="h-6 w-6" />
-          <span className="text-lg font-semibold">MCA Trainer</span>
+          <MessageCircle className="h-7 w-7 text-zinc-800" />
+          <div className="flex flex-col">
+            <span className="text-lg font-bold tracking-tight leading-tight">
+              <span className="italic">Talk</span>
+              <span className="text-zinc-600">MCA</span>
+            </span>
+            <span className="text-[10px] text-zinc-500 tracking-wide uppercase">Master the Art of Sales</span>
+          </div>
         </Link>
       </div>
 
@@ -79,6 +122,19 @@ export function Sidebar({ user, onStartCall }: SidebarProps) {
           Start Call
         </Button>
       </div>
+
+      {/* XP Progress */}
+      {userStats && (
+        <div className="px-4 pb-4">
+          <Link href="/achievements" className="block hover:opacity-80 transition-opacity">
+            <XPProgressBar
+              xp={userStats.xp}
+              level={userStats.level}
+              compact
+            />
+          </Link>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3">

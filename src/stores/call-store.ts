@@ -43,6 +43,7 @@ interface CallState {
   duration: number;
   transcript: TranscriptEntry[];
   score: CallScore | null;
+  gamification: GamificationResult | null;
   error: string | null;
   muted: boolean;
   currentSpeaker: 'user' | 'assistant' | null;
@@ -55,7 +56,7 @@ interface CallState {
   setConnecting: () => void;
   setConnected: () => void;
   setEnding: () => void;
-  setEnded: (score: CallScore | null) => void;
+  setEnded: (score: CallScore | null, gamification: GamificationResult | null) => void;
   setError: (error: string) => void;
   updateDuration: (duration: number) => void;
   updateTranscript: (transcript: TranscriptEntry[]) => void;
@@ -79,6 +80,7 @@ const initialState = {
   duration: 0,
   transcript: [],
   score: null,
+  gamification: null,
   error: null,
   muted: false,
   currentSpeaker: null,
@@ -110,9 +112,10 @@ export const useCallStore = create<CallState>((set) => ({
 
   setEnding: () => set({ status: 'ending' }),
 
-  setEnded: (score) => set((state) => ({
+  setEnded: (score, gamification) => set((state) => ({
     status: 'ended',
     score,
+    gamification,
     personaReveal: state.dynamicPersona ? getPersonaSummary(state.dynamicPersona) : null,
   })),
 

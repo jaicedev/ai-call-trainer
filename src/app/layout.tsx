@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MCA Trainer",
-  description: "AI-powered sales call training platform",
+  title: "TalkMCA",
+  description: "Master the Art of Sales - AI-powered call training platform",
 };
 
 export default function RootLayout({

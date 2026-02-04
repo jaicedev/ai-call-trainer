@@ -24,12 +24,17 @@ import {
   Briefcase,
   StickyNote,
   Save,
+  TrendingUp,
+  Trophy,
+  Star,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useCallStore, Persona } from '@/stores/call-store';
 import { useGeminiLive, GeminiVoice, GEMINI_VOICES } from '@/hooks/use-gemini-live';
 import { useDialTone } from '@/hooks/use-dial-tone';
+import { getLevelTitle } from '@/lib/gamification';
+import { GamificationResult, Achievement } from '@/types';
 
 const MAX_DURATION = 10 * 60; // 10 minutes
 
@@ -49,6 +54,78 @@ const getVoiceForPersona = (persona: Persona): GeminiVoice => {
   return 'Kore';
 };
 
+// Show gamification toasts
+function showGamificationToasts(gamification: GamificationResult) {
+  // Show XP gained toast
+  toast.custom(
+    () => (
+      <div className="flex items-center gap-3 bg-white rounded-lg shadow-lg p-4 border">
+        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600">
+          <Sparkles className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <p className="font-semibold text-green-600">+{gamification.xpGained} XP</p>
+          <p className="text-sm text-muted-foreground">Call completed!</p>
+        </div>
+      </div>
+    ),
+    { duration: 4000 }
+  );
+
+  // Show level up toast
+  if (gamification.leveledUp) {
+    const levelTitle = getLevelTitle(gamification.newLevel);
+    setTimeout(() => {
+      toast.custom(
+        () => (
+          <div className="flex items-center gap-3 bg-white rounded-lg shadow-lg p-4 border">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 shadow-lg animate-pulse">
+              <span className="text-2xl font-bold text-white">{gamification.newLevel}</span>
+            </div>
+            <div>
+              <p className="font-bold text-lg flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-purple-500" />
+                Level Up!
+              </p>
+              <p className="text-sm text-muted-foreground">
+                You are now a <span className="font-medium text-foreground">{levelTitle}</span>
+              </p>
+            </div>
+          </div>
+        ),
+        { duration: 6000 }
+      );
+    }, 1500);
+  }
+
+  // Show achievement toasts
+  gamification.newAchievements.forEach((achievement, index) => {
+    setTimeout(() => {
+      toast.custom(
+        () => (
+          <div className="flex items-center gap-3 bg-white rounded-lg shadow-lg p-4 border">
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 shadow-lg">
+              <Trophy className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <p className="font-semibold flex items-center gap-1">
+                <Star className="w-4 h-4 text-yellow-500" />
+                Achievement Unlocked!
+              </p>
+              <p className="text-sm font-medium">{achievement.name}</p>
+              <p className="text-xs text-muted-foreground">+{achievement.xpReward} XP</p>
+            </div>
+          </div>
+        ),
+        { duration: 5000 }
+      );
+    }, 2500 + index * 1500);
+  });
+
+  // Dispatch event for sidebar to update
+  window.dispatchEvent(new Event('gamification-update'));
+}
+
 export function ActiveCallSidebar() {
   const {
     status,
@@ -60,6 +137,7 @@ export function ActiveCallSidebar() {
     duration,
     transcript,
     score,
+    gamification,
     muted,
     currentSpeaker,
     sidebarOpen,
@@ -229,11 +307,16 @@ Important instructions:
       });
 
       const data = await res.json();
-      setEnded(data.score || null);
+      setEnded(data.score || null, data.gamification || null);
+
+      // Show gamification toasts
+      if (data.gamification) {
+        showGamificationToasts(data.gamification);
+      }
     } catch (err) {
       console.error('End call error:', err);
       toast.error('Failed to save call results');
-      setEnded(null);
+      setEnded(null, null);
     }
   }, [callId, persona?.id, duration, getRecordingBase64, getTranscript, disconnect, stopAllTones, setEnding, setEnded]);
 
@@ -593,6 +676,48 @@ Important instructions:
                     </div>
                   )}
                 </div>
+
+                {/* XP Gained */}
+                {gamification && (
+                  <div className="bg-gradient-to-r from-blue-900/40 to-purple-900/40 rounded-lg p-3 border border-blue-800/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-blue-400" />
+                        <span className="text-blue-300 text-sm font-medium">XP Earned</span>
+                      </div>
+                      <span className="text-green-400 font-bold">+{gamification.xpGained}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">{gamification.newLevel}</span>
+                        </div>
+                        <span className="text-zinc-400 text-xs">Level {gamification.newLevel}</span>
+                      </div>
+                      {gamification.leveledUp && (
+                        <Badge className="bg-purple-600 text-white text-xs animate-pulse">
+                          <TrendingUp className="h-3 w-3 mr-1" />
+                          Level Up!
+                        </Badge>
+                      )}
+                    </div>
+                    {gamification.newAchievements.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-blue-800/50">
+                        <p className="text-xs text-yellow-400 flex items-center gap-1 mb-1">
+                          <Trophy className="h-3 w-3" />
+                          Achievements Unlocked
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {gamification.newAchievements.map((achievement) => (
+                            <Badge key={achievement.id} variant="secondary" className="bg-yellow-900/50 text-yellow-300 text-xs">
+                              {achievement.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Call Stats */}
                 <div className="flex justify-between text-xs text-zinc-500 border-t border-zinc-800 pt-3">
