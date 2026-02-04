@@ -2,14 +2,17 @@ import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import { User, Persona, Call, CallScore, FeedComment, FeedReaction, CallWithDetails } from '@/types';
 
-// Use service role for server-side operations
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Helper to get Supabase admin client (called at request time, not module load)
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 // User operations
 export async function getUserByEmail(email: string): Promise<User | null> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('users')
     .select('*')
@@ -21,6 +24,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 }
 
 export async function getUserById(id: string): Promise<User | null> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('users')
     .select('*')
@@ -35,6 +39,7 @@ export async function createUser(
   email: string,
   password: string
 ): Promise<User | null> {
+  const supabase = getSupabase();
   const passwordHash = await bcrypt.hash(password, 10);
 
   const { data, error } = await supabase
@@ -58,6 +63,7 @@ export async function verifyPassword(
   user: User,
   password: string
 ): Promise<boolean> {
+  const supabase = getSupabase();
   const { data } = await supabase
     .from('users')
     .select('password_hash')
@@ -72,6 +78,7 @@ export async function updateUser(
   id: string,
   updates: Partial<Pick<User, 'name' | 'profile_picture_url'>>
 ): Promise<User | null> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('users')
     .update(updates)
@@ -87,6 +94,7 @@ export async function updateUserPassword(
   id: string,
   newPassword: string
 ): Promise<boolean> {
+  const supabase = getSupabase();
   const passwordHash = await bcrypt.hash(newPassword, 10);
 
   const { error } = await supabase
@@ -102,6 +110,7 @@ export async function createVerificationCode(
   email: string,
   code: string
 ): Promise<boolean> {
+  const supabase = getSupabase();
   // Delete any existing codes for this email
   await supabase
     .from('verification_codes')
@@ -124,6 +133,7 @@ export async function verifyCode(
   email: string,
   code: string
 ): Promise<boolean> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('verification_codes')
     .select('*')
@@ -145,6 +155,7 @@ export async function verifyCode(
 
 // Persona operations
 export async function getActivePersonas(): Promise<Persona[]> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('personas')
     .select('*')
@@ -156,6 +167,7 @@ export async function getActivePersonas(): Promise<Persona[]> {
 }
 
 export async function getAllPersonas(): Promise<Persona[]> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('personas')
     .select('*')
@@ -166,6 +178,7 @@ export async function getAllPersonas(): Promise<Persona[]> {
 }
 
 export async function getPersonaById(id: string): Promise<Persona | null> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('personas')
     .select('*')
@@ -179,6 +192,7 @@ export async function getPersonaById(id: string): Promise<Persona | null> {
 export async function createPersona(
   persona: Omit<Persona, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Persona | null> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('personas')
     .insert(persona)
@@ -193,6 +207,7 @@ export async function updatePersona(
   id: string,
   updates: Partial<Omit<Persona, 'id' | 'created_at' | 'updated_at'>>
 ): Promise<Persona | null> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('personas')
     .update(updates)
@@ -209,6 +224,7 @@ export async function createCall(
   userId: string,
   personaId: string
 ): Promise<Call | null> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('calls')
     .insert({
@@ -229,6 +245,7 @@ export async function endCall(
   transcript: unknown[] | null,
   durationSeconds: number
 ): Promise<Call | null> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('calls')
     .update({
@@ -248,6 +265,7 @@ export async function endCall(
 export async function saveCallScore(
   score: Omit<CallScore, 'id' | 'created_at'>
 ): Promise<CallScore | null> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('call_scores')
     .insert(score)
@@ -263,6 +281,7 @@ export async function getCallsForFeed(
   perPage: number = 20,
   currentUserId?: string
 ): Promise<{ calls: CallWithDetails[]; total: number }> {
+  const supabase = getSupabase();
   const offset = (page - 1) * perPage;
 
   // Get total count
@@ -336,6 +355,7 @@ export async function getCallsForFeed(
 }
 
 export async function getUserCalls(userId: string): Promise<CallWithDetails[]> {
+  const supabase = getSupabase();
   const { data: calls, error } = await supabase
     .from('calls')
     .select(`
@@ -366,6 +386,7 @@ export async function addComment(
   userId: string,
   content: string
 ): Promise<FeedComment | null> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('feed_comments')
     .insert({
@@ -384,6 +405,7 @@ export async function addComment(
 }
 
 export async function getCommentsForCall(callId: string): Promise<FeedComment[]> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('feed_comments')
     .select(`
@@ -403,6 +425,7 @@ export async function toggleReaction(
   userId: string,
   reactionType: 'fire' | 'clap' | 'lightbulb' | 'star'
 ): Promise<{ added: boolean }> {
+  const supabase = getSupabase();
   // Check if reaction exists
   const { data: existing } = await supabase
     .from('feed_reactions')
@@ -432,6 +455,7 @@ export async function toggleReaction(
 
 // Admin operations
 export async function getAllUsers(): Promise<User[]> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('users')
     .select('*')
@@ -445,6 +469,7 @@ export async function toggleUserAdmin(
   userId: string,
   isAdmin: boolean
 ): Promise<boolean> {
+  const supabase = getSupabase();
   const { error } = await supabase
     .from('users')
     .update({ is_admin: isAdmin })
@@ -454,6 +479,7 @@ export async function toggleUserAdmin(
 }
 
 export async function deletePersona(id: string): Promise<boolean> {
+  const supabase = getSupabase();
   const { error } = await supabase
     .from('personas')
     .delete()

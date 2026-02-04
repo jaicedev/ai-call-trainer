@@ -4,15 +4,21 @@ import { getSession } from '@/lib/auth';
 import { endCall, saveCallScore, getPersonaById } from '@/lib/db';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+function getGenAI() {
+  return new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+}
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getSupabase();
+    const genAI = getGenAI();
     const session = await getSession();
 
     if (!session) {
