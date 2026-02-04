@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Play, ChevronDown, ChevronUp, Building2, MapPin, Phone, Mail, Briefcase } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CallWithDetails } from '@/types';
+import { AudioPlayer } from '@/components/ui/audio-player';
 
 const difficultyColors = {
   1: 'bg-green-100 text-green-800',
@@ -202,23 +203,7 @@ export default function HistoryPage() {
                     </TableCell>
                     <TableCell>{formatDuration(call.duration_seconds)}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        {call.recording_url && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            asChild
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <a
-                              href={call.recording_url}
-                              target="_blank"
-                              rel="noopener"
-                            >
-                              <Play className="h-4 w-4" />
-                            </a>
-                          </Button>
-                        )}
+                      <div className="flex items-center justify-end">
                         {expandedId === call.id ? (
                           <ChevronUp className="h-4 w-4 text-muted-foreground" />
                         ) : (
@@ -227,7 +212,7 @@ export default function HistoryPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                  {expandedId === call.id && (
+                  {expandedId === call.id && (call.score || call.recording_url) && (
                     <TableRow key={`${call.id}-details`}>
                       <TableCell colSpan={6} className="bg-zinc-50">
                         <div className="p-4 space-y-4">
@@ -280,6 +265,11 @@ export default function HistoryPage() {
                                   </div>
                                 )}
                               </div>
+                          {/* Audio Player */}
+                          {call.recording_url && (
+                            <div>
+                              <h4 className="font-medium mb-2">Recording</h4>
+                              <AudioPlayer src={call.recording_url} />
                             </div>
                           )}
 
