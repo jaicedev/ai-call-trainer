@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { addComment, getCommentsForCall } from '@/lib/db';
+import { addComment, getCommentsForCall, getCallOwnerId, createNotification } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -55,6 +55,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Failed to add comment' },
         { status: 500 }
+      );
+    }
+
+    // Create notification for the call owner (if not commenting on own call)
+    const callOwnerId = await getCallOwnerId(callId);
+    if (callOwnerId && callOwnerId !== session.userId) {
+      await createNotification(
+        callOwnerId,
+        'comment',
+        callId,
+        session.userId,
+        content.substring(0, 100) // Truncate content for notification preview
       );
     }
 
