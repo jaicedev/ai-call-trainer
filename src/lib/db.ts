@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
-import { User, Persona, Call, CallScore, FeedComment, FeedReaction, CallWithDetails, UserAchievement, XPHistoryEntry, Achievement, GamificationResult, LeaderboardEntry, CallReview, CallForReview } from '@/types';
+import { User, Persona, Call, CallScore, FeedComment, FeedReaction, CallWithDetails, UserAchievement, XPHistoryEntry, Achievement, GamificationResult, LeaderboardEntry, CallReview, CallForReview, Notification, NotificationType } from '@/types';
 import { calculateCallXP, calculateLevelFromXP, checkNewAchievements, getAchievementById, ACHIEVEMENTS } from './gamification';
 
 // Helper to get Supabase admin client (called at request time, not module load)
@@ -1091,4 +1091,144 @@ export async function updateUserRole(
     .eq('id', userId);
 
   return !error;
+}
+
+// ============================================
+// Notification Operations
+// ============================================
+
+// Create a notification
+export async function createNotification(
+  userId: string,
+  type: NotificationType,
+  callId: string,
+  actorId: string,
+  content?: string
+): Promise<Notification | null> {
+  // Don't create notification if user is the actor (commenting on own call, etc.)
+  if (userId === actorId) {
+    return null;
+  }
+
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('notifications')
+    .insert({
+      user_id: userId,
+      type,
+      call_id: callId,
+      actor_id: actorId,
+      content: content || null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Create notification error:', error);
+    return null;
+  }
+
+  return data as Notification;
+}
+
+// Get notifications for a user
+export async function getNotificationsForUser(
+  userId: string,
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ notifications: Notification[]; total: number }> {
+  const supabase = getSupabase();
+  const offset = (page - 1) * perPage;
+
+  // Get total count
+  const { count, error: countError } = await supabase
+    .from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId);
+
+  if (countError) {
+    console.error('Get notifications count error:', countError);
+  }
+
+  // Get notifications with actor and call details
+  const { data, error } = await supabase
+    .from('notifications')
+    .select(`
+      *,
+      actor:users!notifications_actor_id_fkey(id, name, profile_picture_url),
+      call:calls!notifications_call_id_fkey(id, dynamic_persona_name, mock_business_name)
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + perPage - 1);
+
+  if (error) {
+    console.error('Get notifications error:', error);
+    return { notifications: [], total: 0 };
+  }
+
+  return {
+    notifications: data as Notification[],
+    total: count || 0,
+  };
+}
+
+// Get unread notification count for a user
+export async function getUnreadNotificationCount(userId: string): Promise<number> {
+  const supabase = getSupabase();
+
+  const { count, error } = await supabase
+    .from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('read', false);
+
+  if (error) {
+    console.error('Get unread notification count error:', error);
+    return 0;
+  }
+
+  return count || 0;
+}
+
+// Mark a notification as read
+export async function markNotificationAsRead(notificationId: string): Promise<boolean> {
+  const supabase = getSupabase();
+
+  const { error } = await supabase
+    .from('notifications')
+    .update({ read: true })
+    .eq('id', notificationId);
+
+  return !error;
+}
+
+// Mark all notifications as read for a user
+export async function markAllNotificationsAsRead(userId: string): Promise<boolean> {
+  const supabase = getSupabase();
+
+  const { error } = await supabase
+    .from('notifications')
+    .update({ read: true })
+    .eq('user_id', userId)
+    .eq('read', false);
+
+  return !error;
+}
+
+// Get call owner ID
+export async function getCallOwnerId(callId: string): Promise<string | null> {
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from('calls')
+    .select('user_id')
+    .eq('id', callId)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data.user_id;
 }

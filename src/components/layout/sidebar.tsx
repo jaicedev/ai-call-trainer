@@ -24,6 +24,7 @@ import {
   Trophy,
   Award,
   MessageCircle,
+  Bell,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { XPProgressBar } from '@/components/gamification/xp-progress-bar';
@@ -45,6 +46,7 @@ interface SidebarProps {
 
 const navItems = [
   { href: '/', label: 'Feed', icon: Home },
+  { href: '/notifications', label: 'Notifications', icon: Bell, showBadge: true },
   { href: '/history', label: 'Call History', icon: History },
   { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { href: '/achievements', label: 'Achievements', icon: Award },
@@ -54,6 +56,7 @@ export function Sidebar({ user, onStartCall }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [userStats, setUserStats] = useState<{ xp: number; level: number } | null>(null);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   useEffect(() => {
     // Fetch user stats for XP display
@@ -69,16 +72,37 @@ export function Sidebar({ user, onStartCall }: SidebarProps) {
       }
     };
 
+    // Fetch unread notification count
+    const fetchNotificationCount = async () => {
+      try {
+        const res = await fetch('/api/notifications/unread-count');
+        if (res.ok) {
+          const data = await res.json();
+          setUnreadNotificationCount(data.count);
+        }
+      } catch (error) {
+        console.error('Failed to fetch notification count:', error);
+      }
+    };
+
     fetchStats();
+    fetchNotificationCount();
 
     // Listen for gamification updates
     const handleGamificationUpdate = () => {
       fetchStats();
     };
 
+    // Listen for notification updates
+    const handleNotificationsUpdate = () => {
+      fetchNotificationCount();
+    };
+
     window.addEventListener('gamification-update', handleGamificationUpdate);
+    window.addEventListener('notifications-update', handleNotificationsUpdate);
     return () => {
       window.removeEventListener('gamification-update', handleGamificationUpdate);
+      window.removeEventListener('notifications-update', handleNotificationsUpdate);
     };
   }, []);
 
@@ -140,6 +164,7 @@ export function Sidebar({ user, onStartCall }: SidebarProps) {
       <nav className="flex-1 space-y-1 px-3">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
+          const showBadge = item.showBadge && unreadNotificationCount > 0;
           return (
             <Link
               key={item.href}
@@ -151,7 +176,14 @@ export function Sidebar({ user, onStartCall }: SidebarProps) {
                   : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
               )}
             >
-              <item.icon className="h-4 w-4" />
+              <div className="relative">
+                <item.icon className="h-4 w-4" />
+                {showBadge && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                    {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+                  </span>
+                )}
+              </div>
               {item.label}
             </Link>
           );

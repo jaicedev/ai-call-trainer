@@ -276,3 +276,20 @@ export interface AnalyticsSummary {
   most_practiced_personas: { persona: Persona; count: number }[];
   top_performers: { user: User; average_score: number; call_count: number }[];
 }
+
+// Notification types
+export type NotificationType = 'comment' | 'review';
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  call_id: string;
+  actor_id: string;
+  content: string | null;
+  read: boolean;
+  created_at: string;
+  // Joined data
+  actor?: Pick<User, 'id' | 'name' | 'profile_picture_url'>;
+  call?: Pick<Call, 'id' | 'dynamic_persona_name' | 'mock_business_name'>;
+}

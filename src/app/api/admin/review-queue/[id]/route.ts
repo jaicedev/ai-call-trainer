@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { getUserById, getCallForReviewById, submitCallReview, getCallReview, addComment } from '@/lib/db';
+import { getUserById, getCallForReviewById, submitCallReview, getCallReview, addComment, createNotification } from '@/lib/db';
 
 // GET /api/admin/review-queue/[id] - Get specific call for review
 export async function GET(
@@ -101,6 +101,17 @@ export async function POST(
       // Create a specially formatted comment that indicates it's admin feedback
       const feedbackComment = `[ADMIN REVIEW] ${feedback.trim()}`;
       await addComment(id, session.userId, feedbackComment);
+    }
+
+    // Create notification for the call owner about the review
+    if (call.user_id && call.user_id !== session.userId) {
+      await createNotification(
+        call.user_id,
+        'review',
+        id,
+        session.userId,
+        feedback.trim().substring(0, 100) // Truncate feedback for notification preview
+      );
     }
 
     return NextResponse.json({
