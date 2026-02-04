@@ -13,6 +13,8 @@ import {
   MessageCircle,
   ChevronDown,
   ChevronUp,
+  ShieldCheck,
+  Award,
   Building2,
   MapPin,
   Phone,
@@ -273,6 +275,56 @@ export function FeedCard({ call, onReactionToggle }: FeedCardProps) {
               </>
             )}
           </Button>
+        )}
+
+        {/* Admin Review Feedback */}
+        {call.review && (
+          <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <div className="p-2 bg-purple-100 rounded-full">
+                  <ShieldCheck className="h-5 w-5 text-purple-600" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300">
+                    <Award className="h-3 w-3 mr-1" />
+                    Admin Review
+                  </Badge>
+                  {call.review.rating && (
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((num) => (
+                        <Star
+                          key={num}
+                          className={cn(
+                            'h-3 w-3',
+                            num <= call.review!.rating!
+                              ? 'fill-yellow-400 text-yellow-400'
+                              : 'text-gray-300'
+                          )}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="text-sm text-purple-900">{call.review.feedback}</p>
+                {call.review.reviewer && (
+                  <div className="flex items-center gap-2 mt-2 text-xs text-purple-600">
+                    <Avatar className="h-5 w-5">
+                      <AvatarImage src={call.review.reviewer.profile_picture_url || undefined} />
+                      <AvatarFallback className="text-[10px]">
+                        {call.review.reviewer.name?.charAt(0) || 'A'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>
+                      Reviewed by {call.review.reviewer.name || 'Admin'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Reactions */}

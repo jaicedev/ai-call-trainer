@@ -1,3 +1,6 @@
+// User roles
+export type UserRole = 'admin' | 'advisor';
+
 // User types
 export interface User {
   id: string;
@@ -5,6 +8,7 @@ export interface User {
   name: string | null;
   profile_picture_url: string | null;
   is_admin: boolean;
+  role: UserRole;
   created_at: string;
   updated_at: string;
   // Gamification fields
@@ -69,6 +73,10 @@ export interface Call {
   dynamic_persona_name: string | null;
   dynamic_persona_description: string | null;
   dynamic_persona_difficulty: number | null;
+  // Review tracking fields
+  reviewed: boolean;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
   // Mock business details for CRM-like display
   mock_business_name: string | null;
   mock_business_state: string | null;
@@ -100,6 +108,19 @@ export interface CallScore {
   created_at: string;
 }
 
+// Call review types (admin feedback)
+export interface CallReview {
+  id: string;
+  call_id: string;
+  reviewer_id: string;
+  feedback: string;
+  notes: string | null;
+  rating: number | null;
+  created_at: string;
+  updated_at: string;
+  reviewer?: Pick<User, 'id' | 'name' | 'profile_picture_url'>;
+}
+
 // Feed types
 export interface FeedComment {
   id: string;
@@ -128,6 +149,14 @@ export interface CallWithDetails extends Call {
   score: CallScore | null;
   reactions: ReactionCount[];
   comments_count: number;
+  review?: CallReview | null;
+}
+
+// Extended call type for admin review queue
+export interface CallForReview extends Call {
+  user: Pick<User, 'id' | 'name' | 'profile_picture_url'>;
+  persona: Pick<Persona, 'id' | 'name' | 'difficulty_level' | 'description' | 'personality_prompt'> | null;
+  score: CallScore | null;
 }
 
 export interface ReactionCount {

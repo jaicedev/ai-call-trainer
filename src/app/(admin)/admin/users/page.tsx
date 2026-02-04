@@ -12,8 +12,16 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2, Shield, ShieldOff } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { UserRole } from '@/types';
 
 interface UserWithStats {
   id: string;
@@ -21,6 +29,7 @@ interface UserWithStats {
   name: string | null;
   profile_picture_url: string | null;
   is_admin: boolean;
+  role: UserRole;
   created_at: string;
   total_calls: number;
   average_score: number;
@@ -46,25 +55,29 @@ export default function AdminUsersPage() {
     }
   };
 
-  const toggleAdmin = async (userId: string, isAdmin: boolean) => {
+  const updateUserRole = async (userId: string, newRole: UserRole) => {
     try {
-      const res = await fetch('/api/admin/users/toggle-admin', {
+      const res = await fetch('/api/admin/users/update-role', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, isAdmin: !isAdmin }),
+        body: JSON.stringify({ userId, role: newRole }),
       });
 
       if (!res.ok) {
-        throw new Error('Failed to update user');
+        throw new Error('Failed to update user role');
       }
 
       setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, is_admin: !isAdmin } : u))
+        prev.map((u) =>
+          u.id === userId
+            ? { ...u, role: newRole, is_admin: newRole === 'admin' }
+            : u
+        )
       );
 
-      toast.success(isAdmin ? 'Admin access removed' : 'Admin access granted');
+      toast.success(`User role updated to ${newRole}`);
     } catch {
-      toast.error('Failed to update user');
+      toast.error('Failed to update user role');
     }
   };
 
@@ -102,7 +115,6 @@ export default function AdminUsersPage() {
               <TableHead>Calls</TableHead>
               <TableHead>Avg Score</TableHead>
               <TableHead>Joined</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -132,11 +144,24 @@ export default function AdminUsersPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {user.is_admin ? (
-                      <Badge>Admin</Badge>
-                    ) : (
-                      <Badge variant="secondary">User</Badge>
-                    )}
+                    <Select
+                      value={user.role || (user.is_admin ? 'admin' : 'advisor')}
+                      onValueChange={(value: UserRole) =>
+                        updateUserRole(user.id, value)
+                      }
+                    >
+                      <SelectTrigger className="w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">
+                          <Badge>Admin</Badge>
+                        </SelectItem>
+                        <SelectItem value="advisor">
+                          <Badge variant="secondary">Advisor</Badge>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>{user.total_calls}</TableCell>
                   <TableCell>
@@ -145,19 +170,6 @@ export default function AdminUsersPage() {
                       : '-'}
                   </TableCell>
                   <TableCell>{formatDate(user.created_at)}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleAdmin(user.id, user.is_admin)}
-                    >
-                      {user.is_admin ? (
-                        <ShieldOff className="h-4 w-4" />
-                      ) : (
-                        <Shield className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </TableCell>
                 </TableRow>
               );
             })}
