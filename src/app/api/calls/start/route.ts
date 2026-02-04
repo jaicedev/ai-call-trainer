@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { personaId, dynamicPersona, personaName, personaDescription, difficulty } = body;
+    const { personaId, dynamicPersona, personaName, personaDescription, difficulty, mockBusiness } = body;
 
     // Handle dynamic persona (no database persona needed)
     if (dynamicPersona) {
@@ -19,7 +19,8 @@ export async function POST(request: NextRequest) {
         session.userId,
         personaName || 'Dynamic Prospect',
         personaDescription || 'Dynamically generated prospect',
-        difficulty || 3
+        difficulty || 3,
+        mockBusiness // Pass mock business details
       );
 
       if (!call) {
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
           name: personaName,
           description: personaDescription,
         },
+        mockBusiness: mockBusiness || null,
       });
     }
 

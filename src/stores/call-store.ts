@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { TranscriptEntry, GeminiVoice } from '@/hooks/use-gemini-live';
-import { CallScore } from '@/types';
-import { DynamicPersona, getPersonaSummary } from '@/lib/dynamic-persona';
+import { CallScore, MockBusinessDetails } from '@/types';
+import { DynamicPersona, getPersonaSummary, MockBusinessDetails as DynamicMockBusiness } from '@/lib/dynamic-persona';
 
 export interface Persona {
   id: string;
@@ -38,6 +38,8 @@ interface CallState {
   persona: Persona | null;
   dynamicPersona: DynamicPersona | null;
   personaReveal: PersonaReveal | null;
+  mockBusiness: MockBusinessDetails | null;
+  callNotes: string;
   duration: number;
   transcript: TranscriptEntry[];
   score: CallScore | null;
@@ -60,6 +62,7 @@ interface CallState {
   setCurrentSpeaker: (speaker: 'user' | 'assistant' | null) => void;
   toggleMute: () => void;
   setMuted: (muted: boolean) => void;
+  setCallNotes: (notes: string) => void;
   openSidebar: () => void;
   closeSidebar: () => void;
   reset: () => void;
@@ -71,6 +74,8 @@ const initialState = {
   persona: null,
   dynamicPersona: null,
   personaReveal: null,
+  mockBusiness: null,
+  callNotes: '',
   duration: 0,
   transcript: [],
   score: null,
@@ -89,6 +94,8 @@ export const useCallStore = create<CallState>((set) => ({
     persona,
     dynamicPersona: dynamicPersona || null,
     personaReveal: null,
+    mockBusiness: dynamicPersona?.mockBusiness || null,
+    callNotes: '',
     sidebarOpen: true,
     transcript: [],
     score: null,
@@ -120,6 +127,8 @@ export const useCallStore = create<CallState>((set) => ({
   toggleMute: () => set((state) => ({ muted: !state.muted })),
 
   setMuted: (muted) => set({ muted }),
+
+  setCallNotes: (callNotes) => set({ callNotes }),
 
   openSidebar: () => set({ sidebarOpen: true }),
 

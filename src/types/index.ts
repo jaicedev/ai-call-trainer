@@ -40,6 +40,15 @@ export interface SuccessCriteria {
   minimum_passing_score: number;
 }
 
+// Mock business details for CRM-like simulation
+export interface MockBusinessDetails {
+  businessName: string;
+  state: string;
+  industry: string;
+  phone: string;
+  email: string;
+}
+
 // Call types
 export interface Call {
   id: string;
@@ -55,6 +64,14 @@ export interface Call {
   dynamic_persona_name: string | null;
   dynamic_persona_description: string | null;
   dynamic_persona_difficulty: number | null;
+  // Mock business details for CRM-like display
+  mock_business_name: string | null;
+  mock_business_state: string | null;
+  mock_business_industry: string | null;
+  mock_business_phone: string | null;
+  mock_business_email: string | null;
+  // User notes taken during practice call
+  call_notes: string | null;
 }
 
 export interface TranscriptEntry {

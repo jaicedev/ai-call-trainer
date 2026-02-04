@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import {
   PhoneOff,
   Mic,
@@ -17,6 +18,12 @@ import {
   Lightbulb,
   Target,
   Sparkles,
+  Building2,
+  MapPin,
+  Mail,
+  Briefcase,
+  StickyNote,
+  Save,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -48,6 +55,8 @@ export function ActiveCallSidebar() {
     callId,
     persona,
     personaReveal,
+    mockBusiness,
+    callNotes,
     duration,
     transcript,
     score,
@@ -63,9 +72,12 @@ export function ActiveCallSidebar() {
     updateTranscript,
     setCurrentSpeaker,
     setMuted,
+    setCallNotes,
     closeSidebar,
     reset,
   } = useCallStore();
+
+  const [savingNotes, setSavingNotes] = useState(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -252,6 +264,30 @@ Important instructions:
     if (s >= 80) return 'text-green-600';
     if (s >= 60) return 'text-yellow-600';
     return 'text-red-600';
+  };
+
+  const saveNotes = async () => {
+    if (!callId || !callNotes.trim()) return;
+
+    setSavingNotes(true);
+    try {
+      const res = await fetch(`/api/calls/${callId}/notes`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: callNotes }),
+      });
+
+      if (res.ok) {
+        toast.success('Notes saved!');
+      } else {
+        toast.error('Failed to save notes');
+      }
+    } catch (err) {
+      console.error('Save notes error:', err);
+      toast.error('Failed to save notes');
+    } finally {
+      setSavingNotes(false);
+    }
   };
 
   if (!sidebarOpen) return null;
@@ -587,7 +623,72 @@ Important instructions:
               </div>
             )}
 
-            <Button onClick={handleBackToFeed} className="w-full">
+            {/* Mock Business Details */}
+            {mockBusiness && (
+              <div className="border-t border-zinc-800 pt-4 mt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Building2 className="h-4 w-4 text-blue-400" />
+                  <h3 className="text-sm font-semibold text-white">Business Info</h3>
+                </div>
+                <div className="rounded-lg bg-zinc-800/50 p-3 space-y-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-3.5 w-3.5 text-zinc-500" />
+                    <span className="text-zinc-300">{mockBusiness.businessName}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-3.5 w-3.5 text-zinc-500" />
+                    <span className="text-zinc-400">{mockBusiness.industry}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3.5 w-3.5 text-zinc-500" />
+                    <span className="text-zinc-400">{mockBusiness.state}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5 text-zinc-500" />
+                    <span className="text-zinc-400">{mockBusiness.phone}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-3.5 w-3.5 text-zinc-500" />
+                    <span className="text-zinc-400 truncate">{mockBusiness.email}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Call Notes */}
+            <div className="border-t border-zinc-800 pt-4 mt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <StickyNote className="h-4 w-4 text-amber-400" />
+                <h3 className="text-sm font-semibold text-white">Call Notes</h3>
+              </div>
+              <Textarea
+                placeholder="Add notes about this call..."
+                value={callNotes}
+                onChange={(e) => setCallNotes(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-zinc-200 placeholder:text-zinc-500 resize-none min-h-[100px]"
+              />
+              <Button
+                onClick={saveNotes}
+                disabled={savingNotes || !callNotes.trim()}
+                size="sm"
+                className="mt-2 w-full"
+                variant="secondary"
+              >
+                {savingNotes ? (
+                  <>
+                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-3 w-3" />
+                    Save Notes
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <Button onClick={handleBackToFeed} className="w-full mt-4">
               Back to Feed
             </Button>
           </div>
