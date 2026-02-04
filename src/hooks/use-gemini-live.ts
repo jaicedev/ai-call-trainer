@@ -197,17 +197,19 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       ws.onopen = () => {
         console.log(`[Gemini] WebSocket opened for connection #${thisConnectionId}`);
 
-        // Send Setup Message
+        // Send Setup Message - using snake_case for raw WebSocket protocol
         const setupMessage = {
           setup: {
-            model: "models/gemini-2.5-flash-native-audio-preview-09-2025",
-            generationConfig: {
-              responseModalities: ["AUDIO", "TEXT"],
-              speechConfig: {
-                voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
+            model: "models/gemini-2.5-flash-native-audio-preview-12-2025",
+            generation_config: {
+              response_modalities: ["AUDIO"],
+              speech_config: {
+                voice_config: {
+                  prebuilt_voice_config: { voice_name: voice },
+                },
               },
             },
-            systemInstruction: {
+            system_instruction: {
               parts: [{ text: personaInstruction }],
             },
           },
