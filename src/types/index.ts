@@ -44,13 +44,17 @@ export interface SuccessCriteria {
 export interface Call {
   id: string;
   user_id: string;
-  persona_id: string;
+  persona_id: string | null;
   recording_url: string | null;
   transcript: TranscriptEntry[] | null;
   duration_seconds: number;
   started_at: string;
   ended_at: string | null;
   created_at: string;
+  // Dynamic persona fields (used when persona_id is NULL)
+  dynamic_persona_name: string | null;
+  dynamic_persona_description: string | null;
+  dynamic_persona_difficulty: number | null;
 }
 
 export interface TranscriptEntry {
@@ -98,7 +102,7 @@ export interface FeedReaction {
 // Extended types for UI
 export interface CallWithDetails extends Call {
   user: Pick<User, 'id' | 'name' | 'profile_picture_url'>;
-  persona: Pick<Persona, 'id' | 'name' | 'difficulty_level'>;
+  persona: Pick<Persona, 'id' | 'name' | 'difficulty_level'> | null;
   score: CallScore | null;
   reactions: ReactionCount[];
   comments_count: number;

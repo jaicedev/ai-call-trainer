@@ -57,13 +57,17 @@ CREATE TABLE personas (
 CREATE TABLE calls (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  persona_id UUID NOT NULL REFERENCES personas(id) ON DELETE RESTRICT,
+  persona_id UUID REFERENCES personas(id) ON DELETE RESTRICT,
   recording_url TEXT,
   transcript JSONB,
   duration_seconds INTEGER DEFAULT 0,
   started_at TIMESTAMPTZ NOT NULL,
   ended_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  -- Dynamic persona fields (used when persona_id is NULL)
+  dynamic_persona_name VARCHAR(255),
+  dynamic_persona_description TEXT,
+  dynamic_persona_difficulty INTEGER CHECK (dynamic_persona_difficulty IS NULL OR (dynamic_persona_difficulty >= 1 AND dynamic_persona_difficulty <= 5))
 );
 
 -- Indexes for calls

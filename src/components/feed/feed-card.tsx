@@ -102,7 +102,7 @@ export function FeedCard({ call, onReactionToggle }: FeedCardProps) {
               <p className="font-medium">{call.user.name || 'Anonymous'}</p>
               <p className="text-sm text-muted-foreground">
                 practiced with{' '}
-                <span className="font-medium">{call.persona.name}</span>
+                <span className="font-medium">{call.persona?.name || call.dynamic_persona_name || 'Dynamic Persona'}</span>
               </p>
             </div>
           </div>
@@ -110,10 +110,10 @@ export function FeedCard({ call, onReactionToggle }: FeedCardProps) {
             <Badge
               className={cn(
                 'text-xs',
-                difficultyColors[call.persona.difficulty_level as keyof typeof difficultyColors]
+                difficultyColors[(call.persona?.difficulty_level || call.dynamic_persona_difficulty || 1) as keyof typeof difficultyColors]
               )}
             >
-              Level {call.persona.difficulty_level}
+              Level {call.persona?.difficulty_level || call.dynamic_persona_difficulty || 1}
             </Badge>
             <p className="text-xs text-muted-foreground mt-1">
               {formatDate(call.created_at)}
