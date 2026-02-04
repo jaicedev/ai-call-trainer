@@ -708,7 +708,7 @@ Important instructions:
                           Achievements Unlocked
                         </p>
                         <div className="flex flex-wrap gap-1">
-                          {gamification.newAchievements.map((achievement) => (
+                          {gamification.newAchievements.map((achievement: Achievement) => (
                             <Badge key={achievement.id} variant="secondary" className="bg-yellow-900/50 text-yellow-300 text-xs">
                               {achievement.name}
                             </Badge>
