@@ -17,6 +17,7 @@ export interface UseGeminiLiveOptions {
   onTranscriptUpdate?: (transcript: TranscriptEntry[]) => void;
   onSpeakingChange?: (speaker: "user" | "assistant" | null) => void;
   onError?: (error: string) => void;
+  onSetupComplete?: () => void;
 }
 
 export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
@@ -26,6 +27,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
   const audioInputRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -35,6 +37,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   const currentAssistantTextRef = useRef<string>("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const isPlayingAudioRef = useRef<boolean>(false);
 
   // Initialize Audio Context
   const ensureAudioContext = async () => {
@@ -43,16 +46,23 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)({
         sampleRate: 24000, // Gemini output rate
       });
+
+      // Create and connect gain node for volume control
+      gainNodeRef.current = audioContextRef.current.createGain();
+      gainNodeRef.current.gain.value = 1.0; // Full volume
+      gainNodeRef.current.connect(audioContextRef.current.destination);
+
       await audioContextRef.current.audioWorklet.addModule("/audio-processor.js");
     }
     if (audioContextRef.current.state === "suspended") {
       await audioContextRef.current.resume();
     }
+    return audioContextRef.current;
   };
 
   // Play audio chunk from Gemini
   const playAudioChunk = useCallback((pcmData: Int16Array) => {
-    if (!audioContextRef.current) return;
+    if (!audioContextRef.current || !gainNodeRef.current) return;
 
     const context = audioContextRef.current;
     const float32Data = new Float32Array(pcmData.length);
@@ -67,11 +77,21 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
 
     const source = context.createBufferSource();
     source.buffer = buffer;
-    source.connect(context.destination);
+    // Connect to gain node for proper volume control
+    source.connect(gainNodeRef.current);
 
     const currentTime = context.currentTime;
-    // Schedule next chunk exactly at the end of the previous one
-    const startTime = Math.max(currentTime, nextPlayTimeRef.current);
+    // Schedule next chunk with a small buffer to prevent gaps
+    const startTime = Math.max(currentTime + 0.01, nextPlayTimeRef.current);
+
+    source.onended = () => {
+      // Track when audio playback finishes
+      if (nextPlayTimeRef.current <= context.currentTime + 0.1) {
+        isPlayingAudioRef.current = false;
+      }
+    };
+
+    isPlayingAudioRef.current = true;
     source.start(startTime);
     nextPlayTimeRef.current = startTime + buffer.duration;
   }, []);
@@ -191,6 +211,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
           // Handle setup completion
           if (response.setupComplete) {
             console.log("Gemini setup complete");
+            options.onSetupComplete?.();
             return;
           }
 
@@ -329,7 +350,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   }, []);
 
   // Send a text message to trigger response (useful for starting conversation)
-  const sendText = useCallback((text: string) => {
+  const sendText = useCallback((text: string, addToTranscript: boolean = true) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       const msg = {
         clientContent: {
@@ -344,16 +365,25 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       };
       wsRef.current.send(JSON.stringify(msg));
 
-      // Add to transcript
-      const entry: TranscriptEntry = {
-        role: "user",
-        content: text,
-        timestamp: Date.now(),
-      };
-      transcriptRef.current = [...transcriptRef.current, entry];
-      options.onTranscriptUpdate?.(transcriptRef.current);
+      // Add to transcript only if requested
+      if (addToTranscript) {
+        const entry: TranscriptEntry = {
+          role: "user",
+          content: text,
+          timestamp: Date.now(),
+        };
+        transcriptRef.current = [...transcriptRef.current, entry];
+        options.onTranscriptUpdate?.(transcriptRef.current);
+      }
     }
   }, [options]);
+
+  // Set playback volume
+  const setVolume = useCallback((volume: number) => {
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = Math.max(0, Math.min(1, volume));
+    }
+  }, []);
 
   return {
     connect,
@@ -362,6 +392,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
     sendText,
     getRecordingBase64,
     getTranscript,
+    setVolume,
     isConnected,
     isPlaying,
     currentSpeaker,

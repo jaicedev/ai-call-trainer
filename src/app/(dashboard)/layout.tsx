@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { StartCallModal } from '@/components/call/start-call-modal';
+import { ActiveCallSidebar } from '@/components/call/active-call-sidebar';
+import { useCallStore } from '@/stores/call-store';
 
 interface User {
   id: string;
@@ -22,6 +24,7 @@ export default function DashboardLayout({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [showStartCall, setShowStartCall] = useState(false);
+  const { sidebarOpen } = useCallStore();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -60,14 +63,17 @@ export default function DashboardLayout({
   return (
     <div className="flex h-screen">
       <Sidebar user={user} onStartCall={() => setShowStartCall(true)} />
-      <main className="flex-1 overflow-auto bg-white">
+      <main
+        className="flex-1 overflow-auto bg-white transition-all duration-300"
+        style={{ marginRight: sidebarOpen ? '384px' : '0' }}
+      >
         {children}
       </main>
       <StartCallModal
         open={showStartCall}
         onOpenChange={setShowStartCall}
-        userId={user.id}
       />
+      <ActiveCallSidebar />
     </div>
   );
 }
