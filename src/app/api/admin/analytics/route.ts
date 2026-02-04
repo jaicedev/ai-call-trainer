@@ -67,7 +67,7 @@ export async function GET() {
 
     const uniqueActiveUsers = new Set(activeUsers?.map((c) => c.user_id)).size;
 
-    // Get top performers (users with highest average score, min 3 calls)
+    // Get top performers (users with highest average score, min 1 call)
     const { data: userScores } = await supabase
       .from('calls')
       .select(`
@@ -116,32 +116,61 @@ export async function GET() {
       .sort((a, b) => b.average_score - a.average_score)
       .slice(0, 5);
 
-    // Get most practiced personas
-    const { data: personaCalls } = await supabase
+    // Get dynamic persona distributions from completed calls
+    const { data: dynamicCalls } = await supabase
       .from('calls')
-      .select(`
-        persona_id,
-        persona:personas(name)
-      `)
+      .select('dynamic_persona_difficulty, mock_business_industry')
       .not('ended_at', 'is', null);
 
-    const personaStats: Record<string, { name: string; count: number }> = {};
+    // Calculate difficulty distribution
+    const difficultyStats: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    const industryStats: Record<string, number> = {};
+    let totalDynamicCalls = 0;
 
-    personaCalls?.forEach((call) => {
-      if (!call.persona) return;
-      const personaId = call.persona_id;
-      const personaData = call.persona as unknown as { name: string };
-      const personaName = personaData.name;
-
-      if (!personaStats[personaId]) {
-        personaStats[personaId] = { name: personaName, count: 0 };
+    dynamicCalls?.forEach((call) => {
+      // Count difficulty levels
+      if (call.dynamic_persona_difficulty) {
+        const diff = call.dynamic_persona_difficulty as number;
+        if (diff >= 1 && diff <= 5) {
+          difficultyStats[diff]++;
+          totalDynamicCalls++;
+        }
       }
-      personaStats[personaId].count++;
+
+      // Count industries
+      if (call.mock_business_industry) {
+        const industry = call.mock_business_industry as string;
+        industryStats[industry] = (industryStats[industry] || 0) + 1;
+      }
     });
 
-    const mostPracticedPersonas = Object.values(personaStats)
+    // Format difficulty distribution with labels
+    const difficultyLabels: Record<number, string> = {
+      1: 'Beginner',
+      2: 'Easy',
+      3: 'Moderate',
+      4: 'Challenging',
+      5: 'Expert',
+    };
+
+    const difficultyDistribution = Object.entries(difficultyStats)
+      .map(([level, count]) => ({
+        level: parseInt(level),
+        label: difficultyLabels[parseInt(level)],
+        count,
+        percentage: totalDynamicCalls > 0 ? Math.round((count / totalDynamicCalls) * 100) : 0,
+      }))
+      .sort((a, b) => a.level - b.level);
+
+    // Format industry distribution (top 8)
+    const industryDistribution = Object.entries(industryStats)
+      .map(([industry, count]) => ({
+        industry,
+        count,
+        percentage: totalDynamicCalls > 0 ? Math.round((count / totalDynamicCalls) * 100) : 0,
+      }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+      .slice(0, 8);
 
     return NextResponse.json({
       total_calls_this_week: callsThisWeek || 0,
@@ -150,7 +179,9 @@ export async function GET() {
       total_users: totalUsers || 0,
       active_users_this_week: uniqueActiveUsers,
       top_performers: topPerformers,
-      most_practiced_personas: mostPracticedPersonas,
+      total_dynamic_calls: totalDynamicCalls,
+      difficulty_distribution: difficultyDistribution,
+      industry_distribution: industryDistribution,
     });
   } catch (error) {
     console.error('Analytics error:', error);
