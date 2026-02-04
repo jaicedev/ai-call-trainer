@@ -1,12 +1,15 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 export async function sendVerificationEmail(
   email: string,
   code: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const resend = getResend();
     const { error } = await resend.emails.send({
       from: 'MCA Trainer <noreply@ccapsolution.com>',
       to: email,
