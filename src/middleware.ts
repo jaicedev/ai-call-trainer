@@ -6,15 +6,10 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 );
 
-const publicRoutes = ['/login', '/api/auth/send-code', '/api/auth/verify-code', '/api/auth/setup-password', '/api/auth/login'];
+const publicRoutes = ['/api/auth/send-code', '/api/auth/verify-code', '/api/auth/setup-password', '/api/auth/login'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  // Allow public routes
-  if (publicRoutes.some((route) => pathname.startsWith(route))) {
-    return NextResponse.next();
-  }
 
   // Allow API routes to handle their own auth
   if (pathname.startsWith('/api/')) {
@@ -24,6 +19,28 @@ export async function middleware(request: NextRequest) {
   // Check for session cookie
   const token = request.cookies.get('mca-session')?.value;
 
+  // Handle login page - redirect authenticated users to dashboard
+  if (pathname === '/login') {
+    if (token) {
+      try {
+        await jwtVerify(token, JWT_SECRET);
+        return NextResponse.redirect(new URL('/', request.url));
+      } catch {
+        // Invalid token, let them access login
+        const response = NextResponse.next();
+        response.cookies.delete('mca-session');
+        return response;
+      }
+    }
+    return NextResponse.next();
+  }
+
+  // Allow other public routes
+  if (publicRoutes.some((route) => pathname.startsWith(route))) {
+    return NextResponse.next();
+  }
+
+  // Protected routes - require auth
   if (!token) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
