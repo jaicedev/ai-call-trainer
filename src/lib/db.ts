@@ -154,66 +154,14 @@ export async function verifyCode(
   return true;
 }
 
-// Persona operations
-export async function getActivePersonas(): Promise<Persona[]> {
-  const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from('personas')
-    .select('*')
-    .eq('is_active', true)
-    .order('difficulty_level', { ascending: true });
-
-  if (error) return [];
-  return data as Persona[];
-}
-
-export async function getAllPersonas(): Promise<Persona[]> {
-  const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from('personas')
-    .select('*')
-    .order('name', { ascending: true });
-
-  if (error) return [];
-  return data as Persona[];
-}
-
+// Legacy persona lookup - kept for backwards compatibility with existing call data
+// New calls use dynamic personas generated at runtime (see src/lib/dynamic-persona.ts)
 export async function getPersonaById(id: string): Promise<Persona | null> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('personas')
     .select('*')
     .eq('id', id)
-    .single();
-
-  if (error) return null;
-  return data as Persona;
-}
-
-export async function createPersona(
-  persona: Omit<Persona, 'id' | 'created_at' | 'updated_at'>
-): Promise<Persona | null> {
-  const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from('personas')
-    .insert(persona)
-    .select()
-    .single();
-
-  if (error) return null;
-  return data as Persona;
-}
-
-export async function updatePersona(
-  id: string,
-  updates: Partial<Omit<Persona, 'id' | 'created_at' | 'updated_at'>>
-): Promise<Persona | null> {
-  const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from('personas')
-    .update(updates)
-    .eq('id', id)
-    .select()
     .single();
 
   if (error) return null;
@@ -556,15 +504,6 @@ export async function toggleUserAdmin(
   return !error;
 }
 
-export async function deletePersona(id: string): Promise<boolean> {
-  const supabase = getSupabase();
-  const { error } = await supabase
-    .from('personas')
-    .delete()
-    .eq('id', id);
-
-  return !error;
-}
 
 // Gamification operations
 

@@ -2,7 +2,21 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Phone, Users, TrendingUp, Award } from 'lucide-react';
+import { Loader2, Phone, Users, TrendingUp, Award, BarChart3, Building2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface DifficultyItem {
+  level: number;
+  label: string;
+  count: number;
+  percentage: number;
+}
+
+interface IndustryItem {
+  industry: string;
+  count: number;
+  percentage: number;
+}
 
 interface Analytics {
   total_calls_this_week: number;
@@ -16,11 +30,18 @@ interface Analytics {
     average_score: number;
     call_count: number;
   }[];
-  most_practiced_personas: {
-    name: string;
-    count: number;
-  }[];
+  total_dynamic_calls: number;
+  difficulty_distribution: DifficultyItem[];
+  industry_distribution: IndustryItem[];
 }
+
+const difficultyColors: Record<number, string> = {
+  1: 'bg-green-500',
+  2: 'bg-lime-500',
+  3: 'bg-yellow-500',
+  4: 'bg-orange-500',
+  5: 'bg-red-500',
+};
 
 export default function AdminDashboard() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
@@ -124,36 +145,71 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
+      {/* Top Performers - Full Width */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Award className="h-5 w-5" />
+            Top Performers
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {analytics.top_performers.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No data yet</p>
+          ) : (
+            <div className="grid grid-cols-5 gap-4">
+              {analytics.top_performers.map((user, i) => (
+                <div key={user.email} className="flex items-center gap-3 p-3 rounded-lg bg-zinc-50">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-200 text-sm font-medium">
+                    {i + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{user.name || user.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {user.call_count} calls
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-green-600">
+                      {user.average_score.toFixed(1)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-2 gap-8">
-        {/* Top Performers */}
+        {/* Difficulty Distribution */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Award className="h-5 w-5" />
-              Top Performers
+              <BarChart3 className="h-5 w-5" />
+              Difficulty Distribution
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {analytics.top_performers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No data yet</p>
+            {analytics.difficulty_distribution.every(d => d.count === 0) ? (
+              <p className="text-sm text-muted-foreground">No calls yet</p>
             ) : (
-              <div className="space-y-4">
-                {analytics.top_performers.map((user, i) => (
-                  <div key={user.email} className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-sm font-medium">
-                      {i + 1}
+              <div className="space-y-3">
+                {analytics.difficulty_distribution.map((item) => (
+                  <div key={item.level} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">
+                        Level {item.level} - {item.label}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {item.count} ({item.percentage}%)
+                      </span>
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium">{user.name || user.email}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {user.call_count} calls
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-green-600">
-                        {user.average_score.toFixed(1)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">avg score</p>
+                    <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
+                      <div
+                        className={cn('h-full rounded-full transition-all', difficultyColors[item.level])}
+                        style={{ width: `${item.percentage}%` }}
+                      />
                     </div>
                   </div>
                 ))}
@@ -162,28 +218,35 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Most Practiced Personas */}
+        {/* Industry Distribution */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Most Practiced Personas
+              <Building2 className="h-5 w-5" />
+              Industry Distribution
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {analytics.most_practiced_personas.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No data yet</p>
+            {analytics.industry_distribution.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No calls yet</p>
             ) : (
               <div className="space-y-3">
-                {analytics.most_practiced_personas.map((persona) => (
-                  <div
-                    key={persona.name}
-                    className="flex items-center justify-between"
-                  >
-                    <span className="font-medium">{persona.name}</span>
-                    <span className="text-muted-foreground">
-                      {persona.count} calls
-                    </span>
+                {analytics.industry_distribution.map((item) => (
+                  <div key={item.industry} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium truncate max-w-[200px]">
+                        {item.industry}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {item.count} ({item.percentage}%)
+                      </span>
+                    </div>
+                    <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-blue-500 transition-all"
+                        style={{ width: `${item.percentage}%` }}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>

@@ -265,6 +265,8 @@ export default function HistoryPage() {
                                   </div>
                                 )}
                               </div>
+                            </div>
+                          )}
                           {/* Audio Player */}
                           {call.recording_url && (
                             <div>
