@@ -39,7 +39,8 @@ export function StartCallModal({
           dynamicPersona: true,
           personaName: dynamicPersona.name,
           personaDescription: dynamicPersona.description,
-          difficulty: dynamicPersona.difficulty_level
+          difficulty: dynamicPersona.difficulty_level,
+          mockBusiness: dynamicPersona.mockBusiness
         }),
       });
 

@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import {
   PhoneOff,
   Mic,
@@ -17,6 +18,12 @@ import {
   Lightbulb,
   Target,
   Sparkles,
+  Building2,
+  MapPin,
+  Mail,
+  Briefcase,
+  StickyNote,
+  Save,
   TrendingUp,
   Trophy,
   Star,
@@ -125,6 +132,8 @@ export function ActiveCallSidebar() {
     callId,
     persona,
     personaReveal,
+    mockBusiness,
+    callNotes,
     duration,
     transcript,
     score,
@@ -141,9 +150,12 @@ export function ActiveCallSidebar() {
     updateTranscript,
     setCurrentSpeaker,
     setMuted,
+    setCallNotes,
     closeSidebar,
     reset,
   } = useCallStore();
+
+  const [savingNotes, setSavingNotes] = useState(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -337,6 +349,30 @@ Important instructions:
     return 'text-red-600';
   };
 
+  const saveNotes = async () => {
+    if (!callId || !callNotes.trim()) return;
+
+    setSavingNotes(true);
+    try {
+      const res = await fetch(`/api/calls/${callId}/notes`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: callNotes }),
+      });
+
+      if (res.ok) {
+        toast.success('Notes saved!');
+      } else {
+        toast.error('Failed to save notes');
+      }
+    } catch (err) {
+      console.error('Save notes error:', err);
+      toast.error('Failed to save notes');
+    } finally {
+      setSavingNotes(false);
+    }
+  };
+
   if (!sidebarOpen) return null;
 
   return (
@@ -418,76 +454,106 @@ Important instructions:
       {status === 'connected' && (
         <>
           {/* Main Content */}
-          <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Mock Business Info Card (for CRM reference during call) */}
+            {mockBusiness && (
+              <div className="px-4 pt-3 pb-2 border-b border-zinc-800">
+                <div className="rounded-lg bg-zinc-800/50 p-2.5">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Building2 className="h-3.5 w-3.5 text-blue-400" />
+                    <span className="text-zinc-200 text-sm font-medium truncate">{mockBusiness.businessName}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-zinc-400">
+                    <div className="flex items-center gap-1 truncate">
+                      <Briefcase className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{mockBusiness.industry}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3 flex-shrink-0" />
+                      <span>{mockBusiness.state}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Phone className="h-3 w-3 flex-shrink-0" />
+                      <span>{mockBusiness.phone}</span>
+                    </div>
+                    <div className="flex items-center gap-1 truncate">
+                      <Mail className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{mockBusiness.email}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Avatars */}
-            <div className="flex items-center gap-8 mb-6">
+            <div className="flex items-center justify-center gap-6 py-3 px-4">
               {/* User */}
-              <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-center gap-1">
                 <div
                   className={cn(
-                    'relative rounded-full p-1 transition-all',
-                    currentSpeaker === 'user' && 'ring-4 ring-blue-500 animate-pulse'
+                    'relative rounded-full p-0.5 transition-all',
+                    currentSpeaker === 'user' && 'ring-2 ring-blue-500 animate-pulse'
                   )}
                 >
-                  <Avatar className="h-16 w-16 bg-blue-600">
+                  <Avatar className="h-12 w-12 bg-blue-600">
                     <AvatarFallback className="bg-blue-600 text-white">
-                      <User className="h-8 w-8" />
+                      <User className="h-6 w-6" />
                     </AvatarFallback>
                   </Avatar>
                   {currentSpeaker === 'user' && (
-                    <Volume2 className="absolute -bottom-1 -right-1 h-5 w-5 text-blue-500" />
+                    <Volume2 className="absolute -bottom-0.5 -right-0.5 h-4 w-4 text-blue-500" />
                   )}
                 </div>
-                <span className="text-white text-xs">You</span>
+                <span className="text-white text-[10px]">You</span>
               </div>
 
               {/* Connection dots */}
-              <div className="flex gap-1.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" style={{ animationDelay: '0.2s' }} />
-                <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" style={{ animationDelay: '0.4s' }} />
+              <div className="flex gap-1">
+                <div className="h-1 w-1 rounded-full bg-green-500 animate-pulse" />
+                <div className="h-1 w-1 rounded-full bg-green-500 animate-pulse" style={{ animationDelay: '0.2s' }} />
+                <div className="h-1 w-1 rounded-full bg-green-500 animate-pulse" style={{ animationDelay: '0.4s' }} />
               </div>
 
               {/* Persona */}
-              <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-center gap-1">
                 <div
                   className={cn(
-                    'relative rounded-full p-1 transition-all',
-                    currentSpeaker === 'assistant' && 'ring-4 ring-purple-500 animate-pulse'
+                    'relative rounded-full p-0.5 transition-all',
+                    currentSpeaker === 'assistant' && 'ring-2 ring-purple-500 animate-pulse'
                   )}
                 >
-                  <Avatar className="h-16 w-16 bg-purple-600">
-                    <AvatarFallback className="bg-purple-600 text-white text-xl">
+                  <Avatar className="h-12 w-12 bg-purple-600">
+                    <AvatarFallback className="bg-purple-600 text-white text-lg">
                       {persona?.name[0]}
                     </AvatarFallback>
                   </Avatar>
                   {currentSpeaker === 'assistant' && (
-                    <Volume2 className="absolute -bottom-1 -right-1 h-5 w-5 text-purple-500" />
+                    <Volume2 className="absolute -bottom-0.5 -right-0.5 h-4 w-4 text-purple-500" />
                   )}
                 </div>
-                <span className="text-white text-xs">{persona?.name.split(' ')[0]}</span>
+                <span className="text-white text-[10px]">{persona?.name.split(' ')[0]}</span>
               </div>
             </div>
 
             {/* Transcript */}
-            <div className="w-full flex-1 overflow-hidden">
-              <div className="h-full overflow-y-auto space-y-2 pr-2">
+            <div className="flex-1 overflow-hidden px-4 min-h-0">
+              <div className="h-full overflow-y-auto space-y-1.5 pr-1">
                 {transcript.length === 0 ? (
-                  <div className="text-center text-zinc-500 text-sm py-4">
+                  <div className="text-center text-zinc-500 text-xs py-3">
                     Waiting for conversation to start...
                   </div>
                 ) : (
-                  transcript.slice(-6).map((t, i) => (
+                  transcript.slice(-5).map((t, i) => (
                     <div
                       key={i}
                       className={cn(
-                        'p-2 rounded-lg text-sm',
+                        'p-1.5 rounded-lg text-xs',
                         t.role === 'user'
-                          ? 'bg-blue-900/50 text-blue-100 ml-4'
-                          : 'bg-purple-900/50 text-purple-100 mr-4'
+                          ? 'bg-blue-900/50 text-blue-100 ml-3'
+                          : 'bg-purple-900/50 text-purple-100 mr-3'
                       )}
                     >
-                      <span className="font-medium text-xs opacity-70">
+                      <span className="font-medium text-[10px] opacity-70">
                         {t.role === 'user' ? 'You' : persona?.name.split(' ')[0]}:
                       </span>{' '}
                       {t.content}
@@ -496,31 +562,45 @@ Important instructions:
                 )}
               </div>
             </div>
+
+            {/* Live Notes Section */}
+            <div className="px-4 py-2 border-t border-zinc-800">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <StickyNote className="h-3.5 w-3.5 text-amber-400" />
+                <span className="text-zinc-300 text-xs font-medium">Notes</span>
+              </div>
+              <Textarea
+                placeholder="Take notes during the call..."
+                value={callNotes}
+                onChange={(e) => setCallNotes(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-zinc-200 placeholder:text-zinc-500 resize-none text-xs h-16"
+              />
+            </div>
           </div>
 
           {/* Controls */}
-          <div className="p-4 border-t border-zinc-800 flex justify-center gap-4">
+          <div className="p-3 border-t border-zinc-800 flex justify-center gap-3">
             <Button
               variant="outline"
               size="lg"
               onClick={handleToggleMute}
               className={cn(
-                'rounded-full h-14 w-14 border-zinc-700',
+                'rounded-full h-12 w-12 border-zinc-700',
                 muted
                   ? 'bg-red-500 hover:bg-red-600 text-white border-red-500'
                   : 'bg-zinc-800 hover:bg-zinc-700 text-white'
               )}
             >
-              {muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+              {muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             </Button>
 
             <Button
               variant="destructive"
               size="lg"
               onClick={endCall}
-              className="rounded-full h-14 w-14"
+              className="rounded-full h-12 w-12"
             >
-              <PhoneOff className="h-5 w-5" />
+              <PhoneOff className="h-4 w-4" />
             </Button>
           </div>
         </>
@@ -712,7 +792,72 @@ Important instructions:
               </div>
             )}
 
-            <Button onClick={handleBackToFeed} className="w-full">
+            {/* Mock Business Details */}
+            {mockBusiness && (
+              <div className="border-t border-zinc-800 pt-4 mt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Building2 className="h-4 w-4 text-blue-400" />
+                  <h3 className="text-sm font-semibold text-white">Business Info</h3>
+                </div>
+                <div className="rounded-lg bg-zinc-800/50 p-3 space-y-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-3.5 w-3.5 text-zinc-500" />
+                    <span className="text-zinc-300">{mockBusiness.businessName}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-3.5 w-3.5 text-zinc-500" />
+                    <span className="text-zinc-400">{mockBusiness.industry}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3.5 w-3.5 text-zinc-500" />
+                    <span className="text-zinc-400">{mockBusiness.state}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5 text-zinc-500" />
+                    <span className="text-zinc-400">{mockBusiness.phone}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-3.5 w-3.5 text-zinc-500" />
+                    <span className="text-zinc-400 truncate">{mockBusiness.email}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Call Notes */}
+            <div className="border-t border-zinc-800 pt-4 mt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <StickyNote className="h-4 w-4 text-amber-400" />
+                <h3 className="text-sm font-semibold text-white">Call Notes</h3>
+              </div>
+              <Textarea
+                placeholder="Add notes about this call..."
+                value={callNotes}
+                onChange={(e) => setCallNotes(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-zinc-200 placeholder:text-zinc-500 resize-none min-h-[100px]"
+              />
+              <Button
+                onClick={saveNotes}
+                disabled={savingNotes || !callNotes.trim()}
+                size="sm"
+                className="mt-2 w-full"
+                variant="secondary"
+              >
+                {savingNotes ? (
+                  <>
+                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-3 w-3" />
+                    Save Notes
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <Button onClick={handleBackToFeed} className="w-full mt-4">
               Back to Feed
             </Button>
           </div>

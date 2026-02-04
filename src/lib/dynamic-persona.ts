@@ -19,6 +19,15 @@ export interface BusinessContext {
   previousExperience: "none" | "some" | "extensive";
 }
 
+// Mock business details for CRM-like simulation
+export interface MockBusinessDetails {
+  businessName: string;
+  state: string;
+  industry: string;
+  phone: string;
+  email: string;
+}
+
 // Generated persona
 export interface DynamicPersona {
   id: string;
@@ -26,6 +35,7 @@ export interface DynamicPersona {
   voice: GeminiVoice;
   traits: PersonalityTraits;
   businessContext: BusinessContext;
+  mockBusiness: MockBusinessDetails;
   personality_prompt: string;
   difficulty_level: 1 | 2 | 3 | 4 | 5;
   description: string;
@@ -46,6 +56,198 @@ const LAST_NAMES = [
   "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White",
   "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker", "Young"
 ];
+
+// US States for mock business location
+const US_STATES = [
+  "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut",
+  "Delaware", "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa",
+  "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan",
+  "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire",
+  "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio",
+  "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota",
+  "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia",
+  "Wisconsin", "Wyoming"
+];
+
+// State abbreviations for email/phone generation
+const STATE_ABBREVIATIONS: Record<string, string> = {
+  "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR", "California": "CA",
+  "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE", "Florida": "FL", "Georgia": "GA",
+  "Hawaii": "HI", "Idaho": "ID", "Illinois": "IL", "Indiana": "IN", "Iowa": "IA",
+  "Kansas": "KS", "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME", "Maryland": "MD",
+  "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN", "Mississippi": "MS",
+  "Missouri": "MO", "Montana": "MT", "Nebraska": "NE", "Nevada": "NV", "New Hampshire": "NH",
+  "New Jersey": "NJ", "New Mexico": "NM", "New York": "NY", "North Carolina": "NC",
+  "North Dakota": "ND", "Ohio": "OH", "Oklahoma": "OK", "Oregon": "OR", "Pennsylvania": "PA",
+  "Rhode Island": "RI", "South Carolina": "SC", "South Dakota": "SD", "Tennessee": "TN",
+  "Texas": "TX", "Utah": "UT", "Vermont": "VT", "Virginia": "VA", "Washington": "WA",
+  "West Virginia": "WV", "Wisconsin": "WI", "Wyoming": "WY"
+};
+
+// Industry to business name mapping
+const INDUSTRY_BUSINESS_NAMES: Record<string, { prefixes: string[]; suffixes: string[] }> = {
+  "Restaurant Owner": {
+    prefixes: ["Golden", "Blue Moon", "The Rustic", "Harbor", "Sunset", "Mountain View", "River's Edge", "Oak Street", "Main Street", "Downtown"],
+    suffixes: ["Grill", "Kitchen", "Bistro", "Café", "Diner", "Eatery", "Restaurant", "Tavern", "Steakhouse", "Pizzeria"]
+  },
+  "Auto Repair Shop Owner": {
+    prefixes: ["Elite", "Pro", "Quick", "All-Star", "Precision", "Honest", "Family", "Metro", "Summit", "Reliable"],
+    suffixes: ["Auto", "Motors", "Auto Care", "Auto Service", "Garage", "Auto Repair", "Automotive", "Car Care", "Auto Works", "Auto Center"]
+  },
+  "Medical Practice Owner": {
+    prefixes: ["Premier", "Advanced", "Family", "Wellness", "Care First", "Healthy Life", "Valley", "Lakeside", "Community", "Integrative"],
+    suffixes: ["Medical Group", "Health Center", "Medical Associates", "Family Practice", "Healthcare", "Medical Clinic", "Physicians", "Medicine", "Health Services", "Wellness Center"]
+  },
+  "Construction Company Owner": {
+    prefixes: ["Solid", "Foundation", "Premier", "Summit", "Apex", "Heritage", "Precision", "Quality", "Elite", "Pro Build"],
+    suffixes: ["Construction", "Builders", "Contracting", "Building Co.", "Development", "Construction Group", "Building Services", "General Contractors", "Building Solutions", "Construction Inc."]
+  },
+  "Retail Store Owner": {
+    prefixes: ["The", "Main Street", "Corner", "Downtown", "Village", "Family", "Local", "Hometown", "Central", "Metro"],
+    suffixes: ["Shop", "Store", "Emporium", "Boutique", "Market", "Goods", "Mercantile", "Trading Co.", "General Store", "Supply"]
+  },
+  "Trucking Company Owner": {
+    prefixes: ["Interstate", "Reliable", "Swift", "American", "National", "Cross-Country", "Highway", "Express", "Premier", "First Class"],
+    suffixes: ["Trucking", "Transport", "Logistics", "Freight", "Hauling", "Carriers", "Transportation", "Shipping", "Moving", "Trucking Co."]
+  },
+  "Manufacturing Business Owner": {
+    prefixes: ["Precision", "Industrial", "Advanced", "Quality", "American", "National", "Pro", "Elite", "Premier", "Global"],
+    suffixes: ["Manufacturing", "Industries", "Products", "Solutions", "Corp.", "Fabrication", "Systems", "Technologies", "Enterprises", "Production"]
+  },
+  "Landscaping Company Owner": {
+    prefixes: ["Green Thumb", "Evergreen", "Natural", "Perfect", "Paradise", "Four Seasons", "Premier", "Elite", "Pro", "Beautiful"],
+    suffixes: ["Landscaping", "Lawn Care", "Gardens", "Outdoor Services", "Lawn & Garden", "Landscapes", "Grounds", "Outdoor Living", "Land Management", "Turf Services"]
+  },
+  "Salon/Spa Owner": {
+    prefixes: ["Luxe", "Serenity", "Bliss", "Radiance", "Glow", "Harmony", "Oasis", "Pure", "Bella", "Tranquil"],
+    suffixes: ["Salon", "Spa", "Beauty Bar", "Hair Studio", "Wellness Spa", "Beauty Lounge", "Day Spa", "Hair & Nails", "Beauty Studio", "Salon & Spa"]
+  },
+  "IT Services Company Owner": {
+    prefixes: ["Tech", "Digital", "Cloud", "Cyber", "Smart", "Next Gen", "Innovation", "Quantum", "Net", "Data"],
+    suffixes: ["Solutions", "Systems", "Tech", "IT Services", "Computing", "Technologies", "Consulting", "Networks", "IT Group", "Digital Services"]
+  },
+  "Dental Practice Owner": {
+    prefixes: ["Smile", "Bright", "Family", "Gentle", "Premier", "Advanced", "Care", "Comfort", "Perfect", "Happy"],
+    suffixes: ["Dental", "Dentistry", "Dental Care", "Dental Group", "Dental Associates", "Dental Center", "Family Dentistry", "Dental Studio", "Oral Health", "Dental Clinic"]
+  },
+  "HVAC Company Owner": {
+    prefixes: ["Comfort", "Climate", "Cool", "Air Pro", "Temperature", "All Seasons", "Arctic", "Reliable", "Quality", "Expert"],
+    suffixes: ["HVAC", "Heating & Cooling", "Air Conditioning", "Climate Control", "Comfort Systems", "Air Services", "Mechanical", "HVAC Services", "Heating & Air", "Climate Solutions"]
+  },
+  "Food Truck Owner": {
+    prefixes: ["Rolling", "Street", "Mobile", "Urban", "The Hungry", "Flavor", "Tasty", "Grub", "Quick Bite", "On The Go"],
+    suffixes: ["Eats", "Bites", "Kitchen", "Grill", "Food Co.", "Street Food", "Cuisine", "Flavors", "Food Truck", "Meals"]
+  },
+  "E-commerce Business Owner": {
+    prefixes: ["Quick", "Smart", "Easy", "Click", "Shop", "Direct", "Online", "Instant", "Best", "Value"],
+    suffixes: ["Shop", "Store", "Market", "Goods", "Deals", "Direct", "Online", "Hub", "Marketplace", "Express"]
+  },
+  "Cleaning Service Owner": {
+    prefixes: ["Spotless", "Crystal Clear", "Fresh", "Sparkle", "Pristine", "Shine", "Clean Pro", "Premium", "Bright", "Perfect"],
+    suffixes: ["Cleaning", "Cleaners", "Cleaning Services", "Janitorial", "Clean Co.", "Cleaning Solutions", "Maid Service", "Cleaning Crew", "Housekeeping", "Maintenance"]
+  }
+};
+
+// Email domains for mock businesses (fake but realistic looking)
+const MOCK_EMAIL_DOMAINS = [
+  "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "aol.com",
+  "icloud.com", "mail.com", "protonmail.com"
+];
+
+// Generate a fake phone number (US format)
+function generateMockPhone(): string {
+  // Use 555 prefix (reserved for fiction) or realistic area codes
+  const areaCodes = ["555", "212", "310", "415", "512", "602", "713", "786", "818", "917"];
+  const areaCode = randomItem(areaCodes);
+  const exchange = Math.floor(Math.random() * 900) + 100;
+  const subscriber = Math.floor(Math.random() * 9000) + 1000;
+  return `(${areaCode}) ${exchange}-${subscriber}`;
+}
+
+// Generate a mock email address
+function generateMockEmail(firstName: string, lastName: string, businessName: string): string {
+  const styles = ["personal", "business"];
+  const style = randomItem(styles);
+
+  const cleanFirstName = firstName.toLowerCase().replace(/[^a-z]/g, "");
+  const cleanLastName = lastName.toLowerCase().replace(/[^a-z]/g, "");
+  const cleanBusiness = businessName.toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 15);
+
+  const domain = randomItem(MOCK_EMAIL_DOMAINS);
+
+  if (style === "personal") {
+    const formats = [
+      `${cleanFirstName}.${cleanLastName}`,
+      `${cleanFirstName}${cleanLastName}`,
+      `${cleanFirstName[0]}${cleanLastName}`,
+      `${cleanFirstName}${Math.floor(Math.random() * 99)}`,
+      `${cleanFirstName}.${cleanLastName}${Math.floor(Math.random() * 99)}`
+    ];
+    return `${randomItem(formats)}@${domain}`;
+  } else {
+    return `${cleanFirstName}@${cleanBusiness}.com`;
+  }
+}
+
+// Generate a mock business name based on industry
+function generateMockBusinessName(businessType: string, lastName: string): string {
+  const config = INDUSTRY_BUSINESS_NAMES[businessType];
+  if (!config) {
+    // Fallback for any industry not in the mapping
+    return `${lastName}'s Business`;
+  }
+
+  const useLastName = Math.random() > 0.6;
+
+  if (useLastName) {
+    return `${lastName}'s ${randomItem(config.suffixes)}`;
+  }
+
+  return `${randomItem(config.prefixes)} ${randomItem(config.suffixes)}`;
+}
+
+// Map business type to industry name
+function getIndustryFromBusinessType(businessType: string): string {
+  const industryMap: Record<string, string> = {
+    "Restaurant Owner": "Food & Beverage",
+    "Auto Repair Shop Owner": "Automotive",
+    "Medical Practice Owner": "Healthcare",
+    "Construction Company Owner": "Construction",
+    "Retail Store Owner": "Retail",
+    "Trucking Company Owner": "Transportation & Logistics",
+    "Manufacturing Business Owner": "Manufacturing",
+    "Landscaping Company Owner": "Landscaping & Lawn Care",
+    "Salon/Spa Owner": "Beauty & Personal Care",
+    "IT Services Company Owner": "Technology",
+    "Dental Practice Owner": "Healthcare - Dental",
+    "HVAC Company Owner": "Home Services - HVAC",
+    "Food Truck Owner": "Food & Beverage - Mobile",
+    "E-commerce Business Owner": "E-commerce & Retail",
+    "Cleaning Service Owner": "Commercial & Residential Services"
+  };
+  return industryMap[businessType] || "Small Business";
+}
+
+// Generate complete mock business details
+function generateMockBusinessDetails(
+  firstName: string,
+  lastName: string,
+  businessType: string
+): MockBusinessDetails {
+  const businessName = generateMockBusinessName(businessType, lastName);
+  const state = randomItem(US_STATES);
+  const industry = getIndustryFromBusinessType(businessType);
+  const phone = generateMockPhone();
+  const email = generateMockEmail(firstName, lastName, businessName);
+
+  return {
+    businessName,
+    state,
+    industry,
+    phone,
+    email
+  };
+}
 
 // Business types with relevant funding needs
 const BUSINESS_CONTEXTS: { type: string; needs: string[] }[] = [
@@ -298,6 +500,9 @@ export function generateDynamicPersona(): DynamicPersona {
     previousExperience: randomItem(["none", "some", "extensive"])
   };
 
+  // Generate mock business details for CRM-like display
+  const mockBusiness = generateMockBusinessDetails(firstName, lastName, businessContextBase.type);
+
   // Pick 2-4 random objections from different categories
   const objectionCategories = Object.keys(OBJECTION_POOLS) as (keyof typeof OBJECTION_POOLS)[];
   const shuffledCategories = objectionCategories.sort(() => Math.random() - 0.5);
@@ -318,6 +523,7 @@ export function generateDynamicPersona(): DynamicPersona {
     voice,
     traits: archetype.traits,
     businessContext,
+    mockBusiness,
     personality_prompt,
     difficulty_level: archetype.difficulty,
     description

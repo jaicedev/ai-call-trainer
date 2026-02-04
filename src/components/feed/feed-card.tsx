@@ -13,6 +13,11 @@ import {
   MessageCircle,
   ChevronDown,
   ChevronUp,
+  Building2,
+  MapPin,
+  Phone,
+  Mail,
+  Briefcase,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CallWithDetails, ReactionType } from '@/types';
@@ -123,6 +128,42 @@ export function FeedCard({ call, onReactionToggle }: FeedCardProps) {
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {/* Mock Business Details (CRM-like display) */}
+        {call.mock_business_name && (
+          <div className="rounded-lg border bg-zinc-50/50 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Building2 className="h-4 w-4 text-zinc-500" />
+              <span className="font-medium text-sm">{call.mock_business_name}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+              {call.mock_business_industry && (
+                <div className="flex items-center gap-1.5">
+                  <Briefcase className="h-3.5 w-3.5" />
+                  <span>{call.mock_business_industry}</span>
+                </div>
+              )}
+              {call.mock_business_state && (
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5" />
+                  <span>{call.mock_business_state}</span>
+                </div>
+              )}
+              {call.mock_business_phone && (
+                <div className="flex items-center gap-1.5">
+                  <Phone className="h-3.5 w-3.5" />
+                  <span>{call.mock_business_phone}</span>
+                </div>
+              )}
+              {call.mock_business_email && (
+                <div className="flex items-center gap-1.5">
+                  <Mail className="h-3.5 w-3.5" />
+                  <span className="truncate">{call.mock_business_email}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Score and Duration */}
         <div className="flex items-center gap-4">
           {call.score && (
@@ -199,6 +240,14 @@ export function FeedCard({ call, onReactionToggle }: FeedCardProps) {
                     <li key={i}>{s}</li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {/* Call Notes */}
+            {call.call_notes && (
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                <p className="font-medium mb-1 text-amber-800">Call Notes</p>
+                <p className="text-amber-900 whitespace-pre-wrap">{call.call_notes}</p>
               </div>
             )}
           </div>

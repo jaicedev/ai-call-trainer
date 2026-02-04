@@ -67,13 +67,22 @@ CREATE TABLE calls (
   -- Dynamic persona fields (used when persona_id is NULL)
   dynamic_persona_name VARCHAR(255),
   dynamic_persona_description TEXT,
-  dynamic_persona_difficulty INTEGER CHECK (dynamic_persona_difficulty IS NULL OR (dynamic_persona_difficulty >= 1 AND dynamic_persona_difficulty <= 5))
+  dynamic_persona_difficulty INTEGER CHECK (dynamic_persona_difficulty IS NULL OR (dynamic_persona_difficulty >= 1 AND dynamic_persona_difficulty <= 5)),
+  -- Mock business details for CRM-like simulation
+  mock_business_name VARCHAR(255),
+  mock_business_state VARCHAR(50),
+  mock_business_industry VARCHAR(100),
+  mock_business_phone VARCHAR(20),
+  mock_business_email VARCHAR(255),
+  call_notes TEXT
 );
 
 -- Indexes for calls
 CREATE INDEX idx_calls_user_id ON calls(user_id);
 CREATE INDEX idx_calls_persona_id ON calls(persona_id);
 CREATE INDEX idx_calls_created_at ON calls(created_at DESC);
+CREATE INDEX idx_calls_mock_business_state ON calls(mock_business_state);
+CREATE INDEX idx_calls_mock_business_industry ON calls(mock_business_industry);
 
 -- Call scores table
 CREATE TABLE call_scores (

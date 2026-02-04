@@ -240,12 +240,22 @@ export async function createCall(
   return data as Call;
 }
 
+// Mock business details type
+interface MockBusinessInput {
+  businessName: string;
+  state: string;
+  industry: string;
+  phone: string;
+  email: string;
+}
+
 // Create call with dynamic persona (no database persona reference)
 export async function createCallWithDynamicPersona(
   userId: string,
   personaName: string,
   personaDescription: string,
-  difficulty: number
+  difficulty: number,
+  mockBusiness?: MockBusinessInput
 ): Promise<Call | null> {
   const supabase = getSupabase();
   const { data, error } = await supabase
@@ -257,6 +267,12 @@ export async function createCallWithDynamicPersona(
       dynamic_persona_name: personaName,
       dynamic_persona_description: personaDescription,
       dynamic_persona_difficulty: difficulty,
+      // Mock business details for CRM-like display
+      mock_business_name: mockBusiness?.businessName || null,
+      mock_business_state: mockBusiness?.state || null,
+      mock_business_industry: mockBusiness?.industry || null,
+      mock_business_phone: mockBusiness?.phone || null,
+      mock_business_email: mockBusiness?.email || null,
     })
     .select()
     .single();
@@ -288,6 +304,28 @@ export async function endCall(
     .single();
 
   if (error) return null;
+  return data as Call;
+}
+
+// Update call notes
+export async function updateCallNotes(
+  callId: string,
+  notes: string
+): Promise<Call | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('calls')
+    .update({
+      call_notes: notes,
+    })
+    .eq('id', callId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Update call notes error:', error);
+    return null;
+  }
   return data as Call;
 }
 
