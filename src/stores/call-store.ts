@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { TranscriptEntry, GeminiVoice } from '@/hooks/use-gemini-live';
-import { CallScore, MockBusinessDetails } from '@/types';
+import { CallScore, MockBusinessDetails, GamificationResult } from '@/types';
 import { DynamicPersona, getPersonaSummary, MockBusinessDetails as DynamicMockBusiness } from '@/lib/dynamic-persona';
 
 export interface Persona {
