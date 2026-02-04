@@ -1,4 +1,4 @@
--- MCA Trainer Database Schema
+-- TalkMCA Database Schema
 -- Run this in Supabase SQL Editor
 
 -- Enable UUID extension

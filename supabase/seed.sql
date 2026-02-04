@@ -1,4 +1,4 @@
--- Seed data for MCA Trainer
+-- Seed data for TalkMCA
 -- Run this after schema.sql
 
 -- Insert initial personas

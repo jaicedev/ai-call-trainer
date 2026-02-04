@@ -23,6 +23,7 @@ import {
   ChevronUp,
   Trophy,
   Award,
+  MessageCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { XPProgressBar } from '@/components/gamification/xp-progress-bar';
@@ -103,8 +104,14 @@ export function Sidebar({ user, onStartCall }: SidebarProps) {
       {/* Logo */}
       <div className="flex h-16 items-center border-b px-6">
         <Link href="/" className="flex items-center gap-2">
-          <Phone className="h-6 w-6" />
-          <span className="text-lg font-semibold">MCA Trainer</span>
+          <MessageCircle className="h-7 w-7 text-zinc-800" />
+          <div className="flex flex-col">
+            <span className="text-lg font-bold tracking-tight leading-tight">
+              <span className="italic">Talk</span>
+              <span className="text-zinc-600">MCA</span>
+            </span>
+            <span className="text-[10px] text-zinc-500 tracking-wide uppercase">Master the Art of Sales</span>
+          </div>
         </Link>
       </div>
 
