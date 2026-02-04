@@ -299,11 +299,15 @@ export async function getCallsForFeed(
   const supabase = getSupabase();
   const offset = (page - 1) * perPage;
 
-  // Get total count
-  const { count } = await supabase
+  // Get total count of completed calls
+  const { count, error: countError } = await supabase
     .from('calls')
     .select('*', { count: 'exact', head: true })
-    .not('ended_at', 'is', null);
+    .filter('ended_at', 'not.is', null);
+
+  if (countError) {
+    console.error('Get feed count error:', countError);
+  }
 
   // Get calls with related data
   const { data: calls, error } = await supabase
@@ -314,11 +318,16 @@ export async function getCallsForFeed(
       persona:personas(id, name, difficulty_level),
       score:call_scores(*)
     `)
-    .not('ended_at', 'is', null)
+    .filter('ended_at', 'not.is', null)
     .order('created_at', { ascending: false })
     .range(offset, offset + perPage - 1);
 
-  if (error || !calls) {
+  if (error) {
+    console.error('Get feed calls error:', error);
+    return { calls: [], total: 0 };
+  }
+
+  if (!calls) {
     return { calls: [], total: 0 };
   }
 
@@ -391,10 +400,15 @@ export async function getUserCalls(userId: string): Promise<CallWithDetails[]> {
       score:call_scores(*)
     `)
     .eq('user_id', userId)
-    .not('ended_at', 'is', null)
+    .filter('ended_at', 'not.is', null)
     .order('created_at', { ascending: false });
 
-  if (error || !calls) return [];
+  if (error) {
+    console.error('Get user calls error:', error);
+    return [];
+  }
+
+  if (!calls) return [];
 
   return calls.map((call) => ({
     ...call,
@@ -670,7 +684,7 @@ export async function getLeaderboard(limit: number = 10): Promise<{
       user_id,
       score:call_scores(overall_score)
     `)
-    .not('ended_at', 'is', null);
+    .filter('ended_at', 'not.is', null);
 
   // Calculate average scores per user
   const userScores: Record<string, number[]> = {};
@@ -776,11 +790,15 @@ export async function getUnreviewedCalls(
   const offset = (page - 1) * perPage;
 
   // Get total count of unreviewed completed calls
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from('calls')
     .select('*', { count: 'exact', head: true })
-    .not('ended_at', 'is', null)
+    .filter('ended_at', 'not.is', null)
     .or('reviewed.is.null,reviewed.eq.false');
+
+  if (countError) {
+    console.error('Get unreviewed calls count error:', countError);
+  }
 
   // Get unreviewed calls with related data
   const { data: calls, error } = await supabase
@@ -791,12 +809,17 @@ export async function getUnreviewedCalls(
       persona:personas(id, name, difficulty_level, description, personality_prompt),
       score:call_scores(*)
     `)
-    .not('ended_at', 'is', null)
+    .filter('ended_at', 'not.is', null)
     .or('reviewed.is.null,reviewed.eq.false')
     .order('created_at', { ascending: true }) // Oldest first for FIFO queue
     .range(offset, offset + perPage - 1);
 
-  if (error || !calls) {
+  if (error) {
+    console.error('Get unreviewed calls error:', error);
+    return { calls: [], total: 0 };
+  }
+
+  if (!calls) {
     return { calls: [], total: 0 };
   }
 
@@ -822,13 +845,21 @@ export async function getNextCallForReview(): Promise<CallForReview | null> {
       persona:personas(id, name, difficulty_level, description, personality_prompt),
       score:call_scores(*)
     `)
-    .not('ended_at', 'is', null)
+    .filter('ended_at', 'not.is', null)
     .or('reviewed.is.null,reviewed.eq.false')
     .order('created_at', { ascending: true })
     .limit(1)
     .single();
 
-  if (error || !call) {
+  if (error) {
+    // PGRST116 means no rows returned, which is expected when queue is empty
+    if (error.code !== 'PGRST116') {
+      console.error('Get next call for review error:', error);
+    }
+    return null;
+  }
+
+  if (!call) {
     return null;
   }
 
@@ -947,7 +978,7 @@ export async function getReviewQueueStats(): Promise<{
   const { count: pending } = await supabase
     .from('calls')
     .select('*', { count: 'exact', head: true })
-    .not('ended_at', 'is', null)
+    .filter('ended_at', 'not.is', null)
     .or('reviewed.is.null,reviewed.eq.false');
 
   // Get reviewed today
