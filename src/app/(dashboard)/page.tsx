@@ -25,19 +25,34 @@ export default function FeedPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const loadCalls = useCallback(async (pageNum: number, append: boolean = false) => {
+    console.log('[Feed Client] Starting feed load...', { page: pageNum, append });
     try {
       const res = await fetch(`/api/feed?page=${pageNum}`);
+      console.log('[Feed Client] API response status:', res.status);
+
       const data = await res.json();
+      console.log('[Feed Client] API response data:', {
+        callCount: data.calls?.length ?? 0,
+        total: data.total,
+        hasMore: data.has_more,
+        firstCall: data.calls?.[0] ? { id: data.calls[0].id, ended_at: data.calls[0].ended_at } : null,
+        error: data.error
+      });
+
+      if (data.error) {
+        console.error('[Feed Client] API returned error:', data.error);
+        return;
+      }
 
       if (append) {
         setCalls((prev) => [...prev, ...data.calls]);
       } else {
-        setCalls(data.calls);
+        setCalls(data.calls || []);
       }
 
       setHasMore(data.has_more);
     } catch (err) {
-      console.error('Failed to load feed:', err);
+      console.error('[Feed Client] Failed to load feed:', err);
     } finally {
       setLoading(false);
     }

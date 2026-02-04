@@ -296,23 +296,27 @@ export async function getCallsForFeed(
   perPage: number = 20,
   currentUserId?: string
 ): Promise<{ calls: CallWithDetails[]; total: number }> {
+  console.log('[Feed DB] getCallsForFeed starting...', { page, perPage, currentUserId });
   const supabase = getSupabase();
   const offset = (page - 1) * perPage;
+  console.log('[Feed DB] Calculated offset:', offset);
 
   // Get total count of completed calls
+  console.log('[Feed DB] Executing count query...');
   const { count, error: countError } = await supabase
     .from('calls')
     .select('*', { count: 'exact', head: true })
     .not('ended_at', 'is', null);
 
   if (countError) {
-    console.error('Get feed count error:', countError);
+    console.error('[Feed DB] Get feed count error:', countError);
   }
 
   // Debug logging for feed query
-  console.log('[Feed] Count query result:', { count, countError });
+  console.log('[Feed DB] Count query result:', { count, countError });
 
   // Get calls with related data
+  console.log('[Feed DB] Executing calls query with relations...');
   const { data: calls, error } = await supabase
     .from('calls')
     .select(`
@@ -326,7 +330,7 @@ export async function getCallsForFeed(
     .range(offset, offset + perPage - 1);
 
   // Debug logging for feed query
-  console.log('[Feed] Calls query result:', {
+  console.log('[Feed DB] Calls query result:', {
     callCount: calls?.length ?? 0,
     error,
     firstCall: calls?.[0] ? {
@@ -337,19 +341,19 @@ export async function getCallsForFeed(
   });
 
   if (error) {
-    console.error('Get feed calls error:', error);
+    console.error('[Feed DB] Get feed calls error:', error);
     return { calls: [], total: 0 };
   }
 
   if (!calls || calls.length === 0) {
-    console.log('[Feed] No calls found - checking if any calls exist at all...');
+    console.log('[Feed DB] No calls found - checking if any calls exist at all...');
     // Additional debug: check if ANY calls exist
     const { data: allCalls, count: allCallsCount } = await supabase
       .from('calls')
       .select('id, ended_at, user_id, created_at', { count: 'exact' })
       .order('created_at', { ascending: false })
       .limit(5);
-    console.log('[Feed] Debug - All calls sample:', {
+    console.log('[Feed DB] Debug - All calls sample:', {
       allCallsCount,
       sampleCalls: allCalls?.map(c => ({
         id: c.id,
@@ -362,6 +366,7 @@ export async function getCallsForFeed(
 
   // Get reactions for these calls
   const callIds = calls.map((c) => c.id);
+  console.log('[Feed DB] Fetching reactions, comments, and reviews for', callIds.length, 'calls...');
 
   const { data: reactions } = await supabase
     .from('feed_reactions')
@@ -381,6 +386,12 @@ export async function getCallsForFeed(
       reviewer:users(id, name, profile_picture_url)
     `)
     .in('call_id', callIds);
+
+  console.log('[Feed DB] Related data fetched:', {
+    reactionsCount: reactions?.length ?? 0,
+    commentsCount: commentCounts?.length ?? 0,
+    reviewsCount: reviews?.length ?? 0
+  });
 
   // Process calls with reactions and reviews
   const processedCalls = calls.map((call) => {
@@ -415,11 +426,15 @@ export async function getCallsForFeed(
     } as CallWithDetails;
   });
 
+  console.log('[Feed DB] getCallsForFeed complete:', { processedCallCount: processedCalls.length, total: count || 0 });
   return { calls: processedCalls, total: count || 0 };
 }
 
 export async function getUserCalls(userId: string): Promise<CallWithDetails[]> {
+  console.log('[History DB] getUserCalls starting...', { userId });
   const supabase = getSupabase();
+
+  console.log('[History DB] Executing calls query...');
   const { data: calls, error } = await supabase
     .from('calls')
     .select(`
@@ -432,12 +447,40 @@ export async function getUserCalls(userId: string): Promise<CallWithDetails[]> {
     .not('ended_at', 'is', null)
     .order('created_at', { ascending: false });
 
+  console.log('[History DB] Query result:', {
+    callCount: calls?.length ?? 0,
+    error,
+    firstCall: calls?.[0] ? {
+      id: calls[0].id,
+      ended_at: calls[0].ended_at,
+      user_id: calls[0].user_id
+    } : null
+  });
+
   if (error) {
-    console.error('Get user calls error:', error);
+    console.error('[History DB] Get user calls error:', error);
     return [];
   }
 
-  if (!calls) return [];
+  if (!calls || calls.length === 0) {
+    console.log('[History DB] No calls found for user - checking if any calls exist for this user at all...');
+    // Debug: check if any calls exist for this user (including incomplete)
+    const { data: allUserCalls, count: allUserCallsCount } = await supabase
+      .from('calls')
+      .select('id, ended_at, user_id, created_at', { count: 'exact' })
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+    console.log('[History DB] Debug - All calls for user:', {
+      allUserCallsCount,
+      sampleCalls: allUserCalls?.map(c => ({
+        id: c.id,
+        ended_at: c.ended_at,
+        user_id: c.user_id
+      }))
+    });
+    return [];
+  }
 
   return calls.map((call) => ({
     ...call,
