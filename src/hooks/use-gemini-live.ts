@@ -43,6 +43,8 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   const nextPlayTimeRef = useRef<number>(0);
   const transcriptRef = useRef<TranscriptEntry[]>([]);
   const currentAssistantTextRef = useRef<string>("");
+  // Track active audio sources for interruption handling
+  const activeAudioSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const isPlayingAudioRef = useRef<boolean>(false);
@@ -87,6 +89,31 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
     return audioContextRef.current;
   };
 
+  // Stop all currently playing audio and clear the queue
+  // This is called when the user interrupts (barge-in)
+  const stopAllPlayback = useCallback(() => {
+    // Stop all active audio sources
+    activeAudioSourcesRef.current.forEach(source => {
+      try {
+        source.stop();
+        source.disconnect();
+      } catch {
+        // Source may have already ended, ignore errors
+      }
+    });
+    activeAudioSourcesRef.current = [];
+
+    // Clear the audio queue
+    audioQueueRef.current = [];
+
+    // Reset playback timing
+    if (audioContextRef.current) {
+      nextPlayTimeRef.current = audioContextRef.current.currentTime;
+    }
+
+    isPlayingAudioRef.current = false;
+  }, []);
+
   // Play audio chunk from Gemini
   const playAudioChunk = useCallback((pcmData: Int16Array) => {
     if (!audioContextRef.current || !gainNodeRef.current) return;
@@ -111,7 +138,15 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
     // Schedule next chunk with a small buffer to prevent gaps
     const startTime = Math.max(currentTime + 0.01, nextPlayTimeRef.current);
 
+    // Track this source for potential interruption
+    activeAudioSourcesRef.current.push(source);
+
     source.onended = () => {
+      // Remove from active sources
+      const index = activeAudioSourcesRef.current.indexOf(source);
+      if (index > -1) {
+        activeAudioSourcesRef.current.splice(index, 1);
+      }
       // Track when audio playback finishes
       if (nextPlayTimeRef.current <= context.currentTime + 0.1) {
         isPlayingAudioRef.current = false;
@@ -263,19 +298,28 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             system_instruction: {
               parts: [{ text: personaInstruction }],
             },
-            // Configure Voice Activity Detection (VAD) to prevent cutting off mid-response
-            // and improve handling of natural conversation flow
+            // Configure Voice Activity Detection (VAD) for natural, human-like conversation
+            // These settings are tuned to prevent the AI from talking over the user
+            // and to allow for natural pauses and thinking time
             realtime_input_config: {
               automatic_activity_detection: {
-                // Use LOW sensitivity for end of speech to prevent early cutoff
-                // This gives users more time to pause/think without being interrupted
+                // HIGH sensitivity for detecting START of speech - we want to catch
+                // when the user begins speaking immediately so we can stop the AI
                 start_of_speech_sensitivity: "START_SENSITIVITY_HIGH",
+                // LOW sensitivity for detecting END of speech - this is CRITICAL
+                // to prevent the AI from cutting off the user mid-sentence or
+                // during natural pauses. Low sensitivity means we wait longer
+                // to be sure the user has actually stopped speaking
                 end_of_speech_sensitivity: "END_SENSITIVITY_LOW",
-                // Increase silence duration before triggering response (default is 100ms which is too short)
-                // 500ms gives natural pauses without awkward delays
-                silence_duration_ms: 500,
-                // Add prefix padding to capture the beginning of speech
-                prefix_padding_ms: 100,
+                // 800ms silence required before AI responds (default is 100ms)
+                // This is calibrated for natural sales conversation pacing where
+                // people often pause to think. 800ms feels natural, not awkward.
+                // Research shows natural turn-taking gaps are 200-700ms, so 800ms
+                // ensures we don't interrupt while still feeling responsive
+                silence_duration_ms: 800,
+                // 200ms prefix padding captures the beginning of speech more reliably
+                // This prevents clipping the first syllable of words
+                prefix_padding_ms: 200,
               },
             },
           },
@@ -355,10 +399,22 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             options.onSpeakingChange?.(null);
           }
 
+          // Handle interruption - when user speaks over the AI (barge-in)
+          // This is CRITICAL for natural conversation flow
+          if (response.serverContent?.interrupted) {
+            console.log("[Gemini] Interrupted by user - stopping playback");
+            stopAllPlayback();
+            // Clear any partial assistant text since the response was cut off
+            currentAssistantTextRef.current = "";
+          }
+
           // Handle user speech activity (if Gemini reports it)
           if (response.realtimeInput?.speechActivity) {
             const activity = response.realtimeInput.speechActivity;
             if (activity.speechStarted) {
+              // User started speaking - stop AI playback immediately
+              // This provides instant feedback and prevents talking over
+              stopAllPlayback();
               setCurrentSpeaker("user");
               options.onSpeakingChange?.("user");
             } else if (activity.speechEnded) {
@@ -409,7 +465,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
         setCurrentSpeaker(null);
       };
     },
-    [options, playAudioChunk, startRecording]
+    [options, playAudioChunk, startRecording, stopAllPlayback]
   );
 
   // Disconnect and cleanup
