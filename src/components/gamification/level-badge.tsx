@@ -52,7 +52,7 @@ export function LevelBadge({ level, size = 'md', showTitle = false, className }:
     <div className={cn('flex items-center gap-2', className)}>
       <div
         className={cn(
-          'flex items-center justify-center rounded-full bg-gradient-to-br font-bold text-white shadow-md',
+          'flex items-center justify-center bg-gradient-to-br font-bold text-white shadow-md',
           sizeClasses[size],
           colorClass
         )}
