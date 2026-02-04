@@ -222,7 +222,14 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
 
       ws.onmessage = async (event) => {
         try {
-          const response = JSON.parse(event.data);
+          // Handle both string and Blob data from WebSocket
+          let data: string;
+          if (event.data instanceof Blob) {
+            data = await event.data.text();
+          } else {
+            data = event.data;
+          }
+          const response = JSON.parse(data);
 
           // Handle setup completion
           if (response.setupComplete) {
