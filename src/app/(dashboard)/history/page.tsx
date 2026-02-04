@@ -36,12 +36,25 @@ export default function HistoryPage() {
   }, []);
 
   const loadCalls = async () => {
+    console.log('[History Client] Starting call history load...');
     try {
       const res = await fetch('/api/calls/history');
+      console.log('[History Client] API response status:', res.status);
+
       const data = await res.json();
+      console.log('[History Client] API response data:', {
+        callCount: data.calls?.length ?? 0,
+        firstCall: data.calls?.[0] ? { id: data.calls[0].id, ended_at: data.calls[0].ended_at } : null,
+        error: data.error
+      });
+
+      if (data.error) {
+        console.error('[History Client] API returned error:', data.error);
+      }
+
       setCalls(data.calls || []);
     } catch (err) {
-      console.error('Failed to load history:', err);
+      console.error('[History Client] Failed to load history:', err);
     } finally {
       setLoading(false);
     }
