@@ -51,6 +51,9 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   // For combined recording (user mic + AI audio)
   const recordingDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const userMicGainRef = useRef<GainNode | null>(null);
+  // Timeout handling for setup and inactivity
+  const setupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
 
   // Initialize Audio Context
   const ensureAudioContext = async () => {
@@ -231,6 +234,17 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       const ws = new WebSocket(`${URI}?key=${GEMINI_API_KEY}`);
       wsRef.current = ws;
 
+      // Set up a timeout for setup completion (15 seconds)
+      // If setup doesn't complete in time, something is wrong
+      setupTimeoutRef.current = setTimeout(() => {
+        if (isConnectingRef.current) {
+          console.error(`[Gemini] Setup timeout for connection #${thisConnectionId}`);
+          options.onError?.("Connection timed out - the agent didn't respond. Please try again.");
+          ws.close();
+          isConnectingRef.current = false;
+        }
+      }, 15000);
+
       ws.onopen = () => {
         console.log(`[Gemini] WebSocket opened for connection #${thisConnectionId}`);
 
@@ -248,6 +262,21 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             },
             system_instruction: {
               parts: [{ text: personaInstruction }],
+            },
+            // Configure Voice Activity Detection (VAD) to prevent cutting off mid-response
+            // and improve handling of natural conversation flow
+            realtime_input_config: {
+              automatic_activity_detection: {
+                // Use LOW sensitivity for end of speech to prevent early cutoff
+                // This gives users more time to pause/think without being interrupted
+                start_of_speech_sensitivity: "START_SENSITIVITY_HIGH",
+                end_of_speech_sensitivity: "END_SENSITIVITY_LOW",
+                // Increase silence duration before triggering response (default is 100ms which is too short)
+                // 500ms gives natural pauses without awkward delays
+                silence_duration_ms: 500,
+                // Add prefix padding to capture the beginning of speech
+                prefix_padding_ms: 100,
+              },
             },
           },
         };
@@ -271,10 +300,19 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
           // Handle setup completion
           if (response.setupComplete) {
             console.log(`[Gemini] Setup complete for connection #${thisConnectionId}`);
+            // Clear the setup timeout since we connected successfully
+            if (setupTimeoutRef.current) {
+              clearTimeout(setupTimeoutRef.current);
+              setupTimeoutRef.current = null;
+            }
             isConnectingRef.current = false;
+            lastActivityRef.current = Date.now();
             options.onSetupComplete?.();
             return;
           }
+
+          // Update activity timestamp on any response
+          lastActivityRef.current = Date.now();
 
           // Handle server content (audio and text responses)
           if (response.serverContent?.modelTurn?.parts) {
@@ -349,12 +387,22 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
 
       ws.onerror = (error) => {
         console.error(`[Gemini] WebSocket error for connection #${thisConnectionId}:`, error);
+        // Clear setup timeout on error
+        if (setupTimeoutRef.current) {
+          clearTimeout(setupTimeoutRef.current);
+          setupTimeoutRef.current = null;
+        }
         isConnectingRef.current = false;
         options.onError?.("Connection error");
       };
 
       ws.onclose = (event) => {
         console.log(`[Gemini] WebSocket closed for connection #${thisConnectionId}, code: ${event.code}, reason: ${event.reason || 'none'}`);
+        // Clear setup timeout on close
+        if (setupTimeoutRef.current) {
+          clearTimeout(setupTimeoutRef.current);
+          setupTimeoutRef.current = null;
+        }
         isConnectingRef.current = false;
         setIsConnected(false);
         setIsPlaying(false);
@@ -368,6 +416,12 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   const disconnect = useCallback(() => {
     console.log(`[Gemini] Disconnect called, closing connection #${connectionIdRef.current}`);
     isConnectingRef.current = false;
+
+    // Clear any pending timeouts
+    if (setupTimeoutRef.current) {
+      clearTimeout(setupTimeoutRef.current);
+      setupTimeoutRef.current = null;
+    }
 
     if (wsRef.current) {
       wsRef.current.close();
