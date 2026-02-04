@@ -12,6 +12,7 @@ import {
   UserCircle,
   ArrowLeft,
   Loader2,
+  ClipboardCheck,
 } from 'lucide-react';
 
 interface User {
@@ -23,6 +24,7 @@ interface User {
 
 const adminNavItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/review-queue', label: 'Review Queue', icon: ClipboardCheck },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/personas', label: 'Personas', icon: UserCircle },
 ];

@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
-import { User, Persona, Call, CallScore, FeedComment, FeedReaction, CallWithDetails, UserAchievement, XPHistoryEntry, Achievement, GamificationResult, LeaderboardEntry } from '@/types';
+import { User, Persona, Call, CallScore, FeedComment, FeedReaction, CallWithDetails, UserAchievement, XPHistoryEntry, Achievement, GamificationResult, LeaderboardEntry, CallReview, CallForReview } from '@/types';
 import { calculateCallXP, calculateLevelFromXP, checkNewAchievements, getAchievementById, ACHIEVEMENTS } from './gamification';
 
 // Helper to get Supabase admin client (called at request time, not module load)
@@ -349,7 +349,16 @@ export async function getCallsForFeed(
     .select('call_id')
     .in('call_id', callIds);
 
-  // Process calls with reactions
+  // Get reviews for these calls
+  const { data: reviews } = await supabase
+    .from('call_reviews')
+    .select(`
+      *,
+      reviewer:users(id, name, profile_picture_url)
+    `)
+    .in('call_id', callIds);
+
+  // Process calls with reactions and reviews
   const processedCalls = calls.map((call) => {
     const callReactions = (reactions || []).filter((r) => r.call_id === call.id);
     const reactionCounts: Record<string, { count: number; user_reacted: boolean }> = {};
@@ -365,6 +374,7 @@ export async function getCallsForFeed(
     }
 
     const commentsForCall = (commentCounts || []).filter((c) => c.call_id === call.id);
+    const callReview = (reviews || []).find((r) => r.call_id === call.id) || null;
 
     return {
       ...call,
@@ -377,6 +387,7 @@ export async function getCallsForFeed(
         user_reacted: data.user_reacted,
       })),
       comments_count: commentsForCall.length,
+      review: callReview as CallReview | null,
     } as CallWithDetails;
   });
 
@@ -773,4 +784,231 @@ export async function getUserRank(userId: string): Promise<number> {
 
   const index = users.findIndex((u) => u.id === userId);
   return index >= 0 ? index + 1 : 0;
+}
+
+// ============================================
+// Admin Review Queue Operations
+// ============================================
+
+// Get unreviewed calls for admin review queue
+export async function getUnreviewedCalls(
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ calls: CallForReview[]; total: number }> {
+  const supabase = getSupabase();
+  const offset = (page - 1) * perPage;
+
+  // Get total count of unreviewed completed calls
+  const { count } = await supabase
+    .from('calls')
+    .select('*', { count: 'exact', head: true })
+    .not('ended_at', 'is', null)
+    .or('reviewed.is.null,reviewed.eq.false');
+
+  // Get unreviewed calls with related data
+  const { data: calls, error } = await supabase
+    .from('calls')
+    .select(`
+      *,
+      user:users(id, name, profile_picture_url),
+      persona:personas(id, name, difficulty_level, description, personality_prompt),
+      score:call_scores(*)
+    `)
+    .not('ended_at', 'is', null)
+    .or('reviewed.is.null,reviewed.eq.false')
+    .order('created_at', { ascending: true }) // Oldest first for FIFO queue
+    .range(offset, offset + perPage - 1);
+
+  if (error || !calls) {
+    return { calls: [], total: 0 };
+  }
+
+  const processedCalls = calls.map((call) => ({
+    ...call,
+    user: call.user,
+    persona: call.persona,
+    score: call.score?.[0] || null,
+  })) as CallForReview[];
+
+  return { calls: processedCalls, total: count || 0 };
+}
+
+// Get the next call to review (oldest unreviewed)
+export async function getNextCallForReview(): Promise<CallForReview | null> {
+  const supabase = getSupabase();
+
+  const { data: call, error } = await supabase
+    .from('calls')
+    .select(`
+      *,
+      user:users(id, name, profile_picture_url),
+      persona:personas(id, name, difficulty_level, description, personality_prompt),
+      score:call_scores(*)
+    `)
+    .not('ended_at', 'is', null)
+    .or('reviewed.is.null,reviewed.eq.false')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .single();
+
+  if (error || !call) {
+    return null;
+  }
+
+  return {
+    ...call,
+    user: call.user,
+    persona: call.persona,
+    score: call.score?.[0] || null,
+  } as CallForReview;
+}
+
+// Get a specific call for review by ID
+export async function getCallForReviewById(callId: string): Promise<CallForReview | null> {
+  const supabase = getSupabase();
+
+  const { data: call, error } = await supabase
+    .from('calls')
+    .select(`
+      *,
+      user:users(id, name, profile_picture_url),
+      persona:personas(id, name, difficulty_level, description, personality_prompt),
+      score:call_scores(*)
+    `)
+    .eq('id', callId)
+    .single();
+
+  if (error || !call) {
+    return null;
+  }
+
+  return {
+    ...call,
+    user: call.user,
+    persona: call.persona,
+    score: call.score?.[0] || null,
+  } as CallForReview;
+}
+
+// Submit a review for a call
+export async function submitCallReview(
+  callId: string,
+  reviewerId: string,
+  feedback: string,
+  notes?: string,
+  rating?: number
+): Promise<CallReview | null> {
+  const supabase = getSupabase();
+
+  // Create the review
+  const { data: review, error: reviewError } = await supabase
+    .from('call_reviews')
+    .insert({
+      call_id: callId,
+      reviewer_id: reviewerId,
+      feedback,
+      notes: notes || null,
+      rating: rating || null,
+    })
+    .select(`
+      *,
+      reviewer:users(id, name, profile_picture_url)
+    `)
+    .single();
+
+  if (reviewError) {
+    console.error('Error creating review:', reviewError);
+    return null;
+  }
+
+  // Mark the call as reviewed
+  const { error: updateError } = await supabase
+    .from('calls')
+    .update({
+      reviewed: true,
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: reviewerId,
+    })
+    .eq('id', callId);
+
+  if (updateError) {
+    console.error('Error updating call review status:', updateError);
+  }
+
+  return review as CallReview;
+}
+
+// Get review for a call
+export async function getCallReview(callId: string): Promise<CallReview | null> {
+  const supabase = getSupabase();
+
+  const { data: review, error } = await supabase
+    .from('call_reviews')
+    .select(`
+      *,
+      reviewer:users(id, name, profile_picture_url)
+    `)
+    .eq('call_id', callId)
+    .single();
+
+  if (error || !review) {
+    return null;
+  }
+
+  return review as CallReview;
+}
+
+// Get review queue stats
+export async function getReviewQueueStats(): Promise<{
+  pending: number;
+  reviewedToday: number;
+  reviewedThisWeek: number;
+}> {
+  const supabase = getSupabase();
+
+  // Get pending count
+  const { count: pending } = await supabase
+    .from('calls')
+    .select('*', { count: 'exact', head: true })
+    .not('ended_at', 'is', null)
+    .or('reviewed.is.null,reviewed.eq.false');
+
+  // Get reviewed today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const { count: reviewedToday } = await supabase
+    .from('call_reviews')
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', today.toISOString());
+
+  // Get reviewed this week
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const { count: reviewedThisWeek } = await supabase
+    .from('call_reviews')
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', weekAgo.toISOString());
+
+  return {
+    pending: pending || 0,
+    reviewedToday: reviewedToday || 0,
+    reviewedThisWeek: reviewedThisWeek || 0,
+  };
+}
+
+// Update user role
+export async function updateUserRole(
+  userId: string,
+  role: 'admin' | 'advisor'
+): Promise<boolean> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from('users')
+    .update({
+      role,
+      is_admin: role === 'admin'
+    })
+    .eq('id', userId);
+
+  return !error;
 }

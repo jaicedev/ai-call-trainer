@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
-import { User } from '@/types';
+import { User, UserRole } from '@/types';
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'your-secret-key-change-in-production'
@@ -13,6 +13,7 @@ export interface SessionPayload {
   userId: string;
   email: string;
   isAdmin: boolean;
+  role: UserRole;
   expiresAt: Date;
 }
 
@@ -23,6 +24,7 @@ export async function createSession(user: User): Promise<string> {
     userId: user.id,
     email: user.email,
     isAdmin: user.is_admin,
+    role: user.role || (user.is_admin ? 'admin' : 'advisor'),
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime(expiresAt)
@@ -55,6 +57,7 @@ export async function getSession(): Promise<SessionPayload | null> {
       userId: payload.userId as string,
       email: payload.email as string,
       isAdmin: payload.isAdmin as boolean,
+      role: (payload.role as UserRole) || (payload.isAdmin ? 'admin' : 'advisor'),
       expiresAt: new Date((payload.exp as number) * 1000),
     };
   } catch {

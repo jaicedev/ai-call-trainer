@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Send } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, Send, ShieldCheck } from 'lucide-react';
 import { FeedComment } from '@/types';
+import { cn } from '@/lib/utils';
 
 interface FeedCommentsProps {
   callId: string;
@@ -88,8 +90,20 @@ export function FeedComments({ callId }: FeedCommentsProps) {
                   .toUpperCase()
               : '?';
 
+            // Check if this is an admin review comment
+            const isAdminReview = comment.content.startsWith('[ADMIN REVIEW]');
+            const displayContent = isAdminReview
+              ? comment.content.replace('[ADMIN REVIEW] ', '')
+              : comment.content;
+
             return (
-              <div key={comment.id} className="flex gap-3">
+              <div
+                key={comment.id}
+                className={cn(
+                  'flex gap-3 p-2 rounded-lg',
+                  isAdminReview && 'bg-purple-50 border border-purple-100'
+                )}
+              >
                 <Avatar className="h-8 w-8">
                   <AvatarImage
                     src={comment.user?.profile_picture_url || undefined}
@@ -97,16 +111,28 @@ export function FeedComments({ callId }: FeedCommentsProps) {
                   <AvatarFallback className="text-xs">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={cn(
+                      "text-sm font-medium",
+                      isAdminReview && "text-purple-700"
+                    )}>
                       {comment.user?.name || 'Anonymous'}
                     </span>
+                    {isAdminReview && (
+                      <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300 text-[10px] px-1.5 py-0">
+                        <ShieldCheck className="h-2.5 w-2.5 mr-0.5" />
+                        Admin
+                      </Badge>
+                    )}
                     <span className="text-xs text-muted-foreground">
                       {formatDate(comment.created_at)}
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {comment.content}
+                  <p className={cn(
+                    "text-sm",
+                    isAdminReview ? "text-purple-800" : "text-muted-foreground"
+                  )}>
+                    {displayContent}
                   </p>
                 </div>
               </div>

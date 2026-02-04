@@ -4,6 +4,9 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Create role enum type
+CREATE TYPE user_role AS ENUM ('admin', 'advisor');
+
 -- Users table
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -12,6 +15,7 @@ CREATE TABLE users (
   name VARCHAR(255),
   profile_picture_url TEXT,
   is_admin BOOLEAN DEFAULT FALSE,
+  role user_role DEFAULT 'advisor',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -67,13 +71,19 @@ CREATE TABLE calls (
   -- Dynamic persona fields (used when persona_id is NULL)
   dynamic_persona_name VARCHAR(255),
   dynamic_persona_description TEXT,
-  dynamic_persona_difficulty INTEGER CHECK (dynamic_persona_difficulty IS NULL OR (dynamic_persona_difficulty >= 1 AND dynamic_persona_difficulty <= 5))
+  dynamic_persona_difficulty INTEGER CHECK (dynamic_persona_difficulty IS NULL OR (dynamic_persona_difficulty >= 1 AND dynamic_persona_difficulty <= 5)),
+  -- Review tracking fields
+  reviewed BOOLEAN DEFAULT FALSE,
+  reviewed_at TIMESTAMPTZ,
+  reviewed_by UUID REFERENCES users(id)
 );
 
 -- Indexes for calls
 CREATE INDEX idx_calls_user_id ON calls(user_id);
 CREATE INDEX idx_calls_persona_id ON calls(persona_id);
 CREATE INDEX idx_calls_created_at ON calls(created_at DESC);
+CREATE INDEX idx_calls_reviewed ON calls(reviewed);
+CREATE INDEX idx_calls_reviewed_by ON calls(reviewed_by);
 
 -- Call scores table
 CREATE TABLE call_scores (
@@ -93,6 +103,22 @@ CREATE TABLE call_scores (
 
 -- Index for call scores
 CREATE INDEX idx_call_scores_call_id ON call_scores(call_id);
+
+-- Call reviews table (admin feedback on calls)
+CREATE TABLE call_reviews (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  call_id UUID UNIQUE NOT NULL REFERENCES calls(id) ON DELETE CASCADE,
+  reviewer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  feedback TEXT NOT NULL,
+  notes TEXT,
+  rating INTEGER CHECK (rating IS NULL OR (rating >= 1 AND rating <= 5)),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for call reviews
+CREATE INDEX idx_call_reviews_call_id ON call_reviews(call_id);
+CREATE INDEX idx_call_reviews_reviewer_id ON call_reviews(reviewer_id);
 
 -- Feed comments table
 CREATE TABLE feed_comments (
@@ -147,6 +173,10 @@ CREATE TRIGGER update_feed_comments_updated_at
   BEFORE UPDATE ON feed_comments
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_call_reviews_updated_at
+  BEFORE UPDATE ON call_reviews
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE verification_codes ENABLE ROW LEVEL SECURITY;
@@ -155,6 +185,7 @@ ALTER TABLE calls ENABLE ROW LEVEL SECURITY;
 ALTER TABLE call_scores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feed_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feed_reactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE call_reviews ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies (permissive for service role, we'll handle auth in app)
 -- These allow the service role to do everything
@@ -178,6 +209,9 @@ CREATE POLICY "Service role full access to feed_comments" ON feed_comments
   FOR ALL USING (true);
 
 CREATE POLICY "Service role full access to feed_reactions" ON feed_reactions
+  FOR ALL USING (true);
+
+CREATE POLICY "Service role full access to call_reviews" ON call_reviews
   FOR ALL USING (true);
 
 -- Create storage bucket for recordings and avatars
