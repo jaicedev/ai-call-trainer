@@ -84,7 +84,7 @@ export default function LeaderboardPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -252,7 +252,7 @@ export default function LeaderboardPage() {
                 return (
                   <div
                     key={`${item.user.id}-${item.achievement.id}-${index}`}
-                    className="flex items-center gap-4 p-3 rounded-lg bg-zinc-50"
+                    className="flex items-center gap-4 p-3 bg-zinc-50"
                   >
                     <Avatar>
                       <AvatarImage src={item.user.profile_picture_url || undefined} />
