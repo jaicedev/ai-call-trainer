@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { createCall, getPersonaById } from '@/lib/db';
+import { createCall, createCallWithDynamicPersona, getPersonaById } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,8 +10,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { personaId } = await request.json();
+    const body = await request.json();
+    const { personaId, dynamicPersona, personaName, personaDescription, difficulty } = body;
 
+    // Handle dynamic persona (no database persona needed)
+    if (dynamicPersona) {
+      const call = await createCallWithDynamicPersona(
+        session.userId,
+        personaName || 'Dynamic Prospect',
+        personaDescription || 'Dynamically generated prospect',
+        difficulty || 3
+      );
+
+      if (!call) {
+        return NextResponse.json(
+          { error: 'Failed to create call' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        callId: call.id,
+        dynamic: true,
+        persona: {
+          name: personaName,
+          description: personaDescription,
+        },
+      });
+    }
+
+    // Legacy: Handle database persona selection
     if (!personaId) {
       return NextResponse.json(
         { error: 'Persona ID is required' },

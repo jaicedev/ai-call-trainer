@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,98 +9,55 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Phone, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Phone, Loader2, Shuffle, Users, Sparkles } from 'lucide-react';
 import { useCallStore, Persona } from '@/stores/call-store';
-
-interface PersonaFromAPI {
-  id: string;
-  name: string;
-  description: string;
-  personality_prompt: string;
-  difficulty_level: 1 | 2 | 3 | 4 | 5;
-}
+import { generateDynamicPersona } from '@/lib/dynamic-persona';
 
 interface StartCallModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const difficultyColors = {
-  1: 'bg-green-100 text-green-800',
-  2: 'bg-lime-100 text-lime-800',
-  3: 'bg-yellow-100 text-yellow-800',
-  4: 'bg-orange-100 text-orange-800',
-  5: 'bg-red-100 text-red-800',
-};
-
-const difficultyLabels = {
-  1: 'Easy',
-  2: 'Moderate',
-  3: 'Medium',
-  4: 'Hard',
-  5: 'Expert',
-};
-
 export function StartCallModal({
   open,
   onOpenChange,
 }: StartCallModalProps) {
-  const [personas, setPersonas] = useState<PersonaFromAPI[]>([]);
-  const [selectedPersona, setSelectedPersona] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
 
   const { startDialing } = useCallStore();
 
-  useEffect(() => {
-    if (open) {
-      loadPersonas();
-    }
-  }, [open]);
-
-  const loadPersonas = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/personas');
-      const data = await res.json();
-      setPersonas(data.personas || []);
-    } catch (err) {
-      console.error('Failed to load personas:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleStartCall = async () => {
-    if (!selectedPersona) return;
-
-    const selected = personas.find((p) => p.id === selectedPersona);
-    if (!selected) return;
-
     setStarting(true);
     try {
+      // Generate a dynamic persona
+      const dynamicPersona = generateDynamicPersona();
+
       const res = await fetch('/api/calls/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ personaId: selectedPersona }),
+        body: JSON.stringify({
+          dynamicPersona: true,
+          personaName: dynamicPersona.name,
+          personaDescription: dynamicPersona.description,
+          difficulty: dynamicPersona.difficulty_level
+        }),
       });
 
       const data = await res.json();
 
       if (data.callId) {
-        // Start the call in the sidebar instead of navigating
+        // Convert dynamic persona to the Persona format for the store
         const persona: Persona = {
-          id: selected.id,
-          name: selected.name,
-          description: selected.description,
-          personality_prompt: selected.personality_prompt,
-          difficulty_level: selected.difficulty_level,
+          id: dynamicPersona.id,
+          name: dynamicPersona.name,
+          description: dynamicPersona.description,
+          personality_prompt: dynamicPersona.personality_prompt,
+          difficulty_level: dynamicPersona.difficulty_level,
+          voice: dynamicPersona.voice,
+          isDynamic: true,
         };
-        startDialing(data.callId, persona);
+        startDialing(data.callId, persona, dynamicPersona);
         onOpenChange(false);
-        setSelectedPersona(null);
       }
     } catch (err) {
       console.error('Failed to start call:', err);
@@ -109,89 +66,76 @@ export function StartCallModal({
     }
   };
 
-  const selected = personas.find((p) => p.id === selectedPersona);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Start a Practice Call</DialogTitle>
           <DialogDescription>
-            Select a prospect persona to practice your pitch with
+            Practice your sales pitch with a dynamically generated prospect
           </DialogDescription>
         </DialogHeader>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid gap-3 max-h-[400px] overflow-y-auto pr-2">
-              {personas.map((persona) => (
-                <button
-                  key={persona.id}
-                  onClick={() => setSelectedPersona(persona.id)}
-                  className={cn(
-                    'flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-colors',
-                    selectedPersona === persona.id
-                      ? 'border-zinc-900 bg-zinc-50'
-                      : 'border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'
-                  )}
-                >
-                  <div className="flex w-full items-center justify-between">
-                    <span className="font-medium">{persona.name}</span>
-                    <Badge
-                      className={cn(
-                        'text-xs',
-                        difficultyColors[persona.difficulty_level]
-                      )}
-                    >
-                      {difficultyLabels[persona.difficulty_level]}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {persona.description}
-                  </p>
-                </button>
-              ))}
+        <div className="space-y-6 py-4">
+          {/* Dynamic Persona Info */}
+          <div className="rounded-lg bg-gradient-to-br from-purple-50 to-blue-50 p-6 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-blue-500">
+              <Shuffle className="h-8 w-8 text-white" />
             </div>
-
-            {selected && (
-              <div className="rounded-lg bg-zinc-50 p-4">
-                <h4 className="font-medium mb-2">Selected: {selected.name}</h4>
-                <p className="text-sm text-muted-foreground">
-                  {selected.description}
-                </p>
+            <h3 className="text-lg font-semibold text-zinc-900 mb-2">
+              Dynamic Prospect Generation
+            </h3>
+            <p className="text-sm text-zinc-600 mb-4">
+              Each call features a unique AI-generated prospect with randomized:
+            </p>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="rounded-lg bg-white/60 p-3">
+                <Users className="h-5 w-5 mx-auto mb-1 text-purple-600" />
+                <span className="text-xs text-zinc-600">Personality</span>
               </div>
-            )}
-
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleStartCall}
-                disabled={!selectedPersona || starting}
-              >
-                {starting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Starting...
-                  </>
-                ) : (
-                  <>
-                    <Phone className="mr-2 h-4 w-4" />
-                    Start Call
-                  </>
-                )}
-              </Button>
+              <div className="rounded-lg bg-white/60 p-3">
+                <Sparkles className="h-5 w-5 mx-auto mb-1 text-blue-600" />
+                <span className="text-xs text-zinc-600">Voice</span>
+              </div>
+              <div className="rounded-lg bg-white/60 p-3">
+                <Phone className="h-5 w-5 mx-auto mb-1 text-green-600" />
+                <span className="text-xs text-zinc-600">Business</span>
+              </div>
             </div>
           </div>
-        )}
+
+          {/* Mystery element */}
+          <div className="text-center text-sm text-zinc-500">
+            The prospect&apos;s personality will be revealed after the call ends
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-2 border-t">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleStartCall}
+              disabled={starting}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            >
+              {starting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Phone className="mr-2 h-4 w-4" />
+                  Start Call
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

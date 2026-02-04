@@ -14,17 +14,26 @@ import {
   X,
   Phone,
   CheckCircle2,
+  Lightbulb,
+  Target,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useCallStore, Persona } from '@/stores/call-store';
-import { useGeminiLive, TranscriptEntry, GeminiVoice } from '@/hooks/use-gemini-live';
+import { useGeminiLive, GeminiVoice, GEMINI_VOICES } from '@/hooks/use-gemini-live';
 import { useDialTone } from '@/hooks/use-dial-tone';
 
 const MAX_DURATION = 10 * 60; // 10 minutes
 
-// Map persona to voice
+// Get voice for persona - uses assigned voice for dynamic personas, or falls back to name-based selection
 const getVoiceForPersona = (persona: Persona): GeminiVoice => {
+  // If persona has an explicitly assigned voice (dynamic personas), use it
+  if (persona.voice && GEMINI_VOICES.includes(persona.voice)) {
+    return persona.voice;
+  }
+
+  // Fallback for legacy personas based on name
   const name = persona.name.toLowerCase();
   if (name.includes('friendly') || name.includes('fiona')) return 'Puck';
   if (name.includes('hostile') || name.includes('harry')) return 'Fenrir';
@@ -38,6 +47,7 @@ export function ActiveCallSidebar() {
     status,
     callId,
     persona,
+    personaReveal,
     duration,
     transcript,
     score,
@@ -513,6 +523,67 @@ Important instructions:
             ) : (
               <div className="text-center py-8">
                 <p className="text-zinc-400">Unable to generate score.</p>
+              </div>
+            )}
+
+            {/* Persona Reveal - Show for dynamic personas */}
+            {personaReveal && (
+              <div className="border-t border-zinc-800 pt-4 mt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="h-4 w-4 text-purple-400" />
+                  <h3 className="text-sm font-semibold text-white">Prospect Revealed</h3>
+                </div>
+
+                {/* Personality Type */}
+                <div className="rounded-lg bg-gradient-to-r from-purple-900/40 to-blue-900/40 p-3 mb-3">
+                  <div className="text-purple-300 text-xs uppercase tracking-wide mb-1">
+                    Personality Type
+                  </div>
+                  <div className="text-white font-medium">
+                    {personaReveal.personalityType}
+                  </div>
+                </div>
+
+                {/* Key Traits */}
+                <div className="mb-3">
+                  <div className="text-zinc-400 text-xs mb-2 flex items-center gap-1">
+                    <Target className="h-3 w-3" /> Key Traits
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {personaReveal.keyTraits.map((trait, i) => (
+                      <Badge
+                        key={i}
+                        variant="secondary"
+                        className="bg-zinc-800 text-zinc-300 text-xs"
+                      >
+                        {trait}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Business Context */}
+                <div className="mb-3">
+                  <div className="text-zinc-400 text-xs mb-1">Business Context</div>
+                  <p className="text-zinc-300 text-sm">{personaReveal.businessInfo}</p>
+                </div>
+
+                {/* Tips for Next Time */}
+                {personaReveal.tips.length > 0 && (
+                  <div className="rounded-lg bg-zinc-800/50 p-3">
+                    <div className="text-zinc-400 text-xs mb-2 flex items-center gap-1">
+                      <Lightbulb className="h-3 w-3 text-yellow-500" /> Tips for This Type
+                    </div>
+                    <ul className="text-zinc-300 text-xs space-y-1">
+                      {personaReveal.tips.slice(0, 3).map((tip, i) => (
+                        <li key={i} className="flex items-start gap-1">
+                          <span className="text-zinc-500">•</span>
+                          {tip}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
 

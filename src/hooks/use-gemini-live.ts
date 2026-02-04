@@ -4,8 +4,16 @@ const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 const HOST = "generativelanguage.googleapis.com";
 const URI = `wss://${HOST}/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent`;
 
-// Voice options for different persona types
-export type GeminiVoice = "Puck" | "Charon" | "Kore" | "Fenrir" | "Aoede";
+// All available Gemini 2.5 voice options
+export const GEMINI_VOICES = [
+  "Zephyr", "Puck", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Aoede",
+  "Callirrhoe", "Autonoe", "Enceladus", "Iapetus", "Algieba", "Despina",
+  "Erinome", "Algenib", "Rasalgethi", "Laomedeia", "Achernar", "Alnilam",
+  "Schedar", "Gacrux", "Pulcherrima", "Achird", "Zubenelgenubi", "Vindemiatrix",
+  "Sadachbia", "Sadaltager", "Sulafat"
+] as const;
+
+export type GeminiVoice = typeof GEMINI_VOICES[number];
 
 export interface TranscriptEntry {
   role: "user" | "assistant";
@@ -40,6 +48,9 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   const isPlayingAudioRef = useRef<boolean>(false);
   const isConnectingRef = useRef<boolean>(false);
   const connectionIdRef = useRef<number>(0);
+  // For combined recording (user mic + AI audio)
+  const recordingDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const userMicGainRef = useRef<GainNode | null>(null);
 
   // Initialize Audio Context
   const ensureAudioContext = async () => {
@@ -53,6 +64,17 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       gainNodeRef.current = audioContextRef.current.createGain();
       gainNodeRef.current.gain.value = 1.0; // Full volume
       gainNodeRef.current.connect(audioContextRef.current.destination);
+
+      // Create recording destination for combined audio (user mic + AI audio)
+      recordingDestinationRef.current = audioContextRef.current.createMediaStreamDestination();
+
+      // Connect AI audio to recording destination too
+      gainNodeRef.current.connect(recordingDestinationRef.current);
+
+      // Create gain node for user mic (will connect later when mic is available)
+      userMicGainRef.current = audioContextRef.current.createGain();
+      userMicGainRef.current.gain.value = 1.0;
+      userMicGainRef.current.connect(recordingDestinationRef.current);
 
       await audioContextRef.current.audioWorklet.addModule("/audio-processor.js");
     }
@@ -109,20 +131,35 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       });
       streamRef.current = stream;
 
-      // Start MediaRecorder for saving the call
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
-        }
-      };
-      mediaRecorder.start(1000);
-
       const context = audioContextRef.current!;
+
+      // Create source from mic stream for sending to Gemini
       const source = context.createMediaStreamSource(stream);
+
+      // Connect mic to recording destination via userMicGain for combined recording
+      // (this captures user's voice alongside AI audio)
+      if (userMicGainRef.current) {
+        source.connect(userMicGainRef.current);
+      }
+
+      // Start MediaRecorder on the COMBINED stream (user mic + AI audio)
+      if (recordingDestinationRef.current) {
+        const combinedStream = recordingDestinationRef.current.stream;
+        const mediaRecorder = new MediaRecorder(combinedStream, {
+          mimeType: 'audio/webm;codecs=opus'
+        });
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+          }
+        };
+        mediaRecorder.start(1000);
+      }
+
+      // Process mic audio to send to Gemini
       const processor = new AudioWorkletNode(context, "pcm-processor");
 
       processor.port.onmessage = (e) => {
